@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+"""志愿Agent — 全局配置与路径常量"""
+import os
+import sys
+from pathlib import Path
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = ROOT_DIR / "data"
+KB_DIR = ROOT_DIR / "kb"
+FRONTEND_DIR = ROOT_DIR / "frontend"
+
+DATABASE_FILE = DATA_DIR / "gaokao_data.db"
+DATABASE_GZ = DATA_DIR / "gaokao_data.db.gz"
+KB_DATABASE_FILE = KB_DIR / "07_录取数据" / "gaokao_data.db"
+CUSTOM_EXCEL = DATA_DIR / "用户数据表.xlsx"
+TEMPLATE_FILE = FRONTEND_DIR / "index.html"
+USERS_FILE = DATA_DIR / "users.json"
+AI_CONFIG_FILE = DATA_DIR / "ai_config.json"
+
+LISTEN_PORT = 8765
+SESSION_TTL = 86400  # 24h
+
+CHINA_PROVINCES = [
+    "北京", "天津", "上海", "重庆", "河北", "山西", "辽宁", "吉林", "黑龙江",
+    "江苏", "浙江", "安徽", "福建", "江西", "山东", "河南", "湖北", "湖南",
+    "广东", "广西", "海南", "四川", "贵州", "云南", "西藏", "陕西", "甘肃",
+    "青海", "宁夏", "新疆", "内蒙古",
+]

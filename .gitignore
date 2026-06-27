@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Data directory (secrets, accounts, API keys, databases)
+data/
+
+# KB (knowledge base) directory
+kb/
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Other projects in same directory
+Zhangxuefeng-AI-gaokao-main/
+xuefeng-agent-master/
+admission_clean.db
+server.log
+
+# Claude memory/plans
+.claude/
