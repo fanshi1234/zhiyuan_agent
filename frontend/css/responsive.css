@@ -1,0 +1,128 @@
+/* =============================================================
+   responsive.css  —  手机端 / 平板端响应式适配
+   ============================================================= */
+
+@media (max-width: 768px) {
+  /* ---- Sidebar: slide-in drawer ---- */
+  #sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 400;
+    width: 80vw !important;
+    max-width: 320px !important;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    box-shadow: 4px 0 24px rgba(0,0,0,.3);
+  }
+  #sidebar.open { transform: translateX(0) }
+
+  /* Hide the sidebar resizer on mobile */
+  #sidebar-resizer { display: none !important }
+
+  /* Show hamburger */
+  .hamburger { display: inline-flex }
+
+  /* Hide desktop user info, show mobile user info */
+  .nav-user { display: none !important }
+  .nav-mobile-user { display: flex !important; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.07) }
+
+  /* Hide input resizer on mobile */
+  #input-resizer { display: none !important }
+
+  /* Chat content padding */
+  #chat-content { padding: 10px 10px }
+
+  /* Topbar */
+  #topbar { padding: 0 10px; height: 50px }
+  #topbar .title { font-size: 15px }
+  #topbar button { padding: 6px 10px; font-size: 13px }
+
+  /* Input panel: fixed at bottom */
+  #input-panel {
+    height: auto !important;
+    min-height: 56px !important;
+    max-height: 35vh !important;
+    padding: 6px 8px 12px;
+  }
+  #userInput {
+    font-size: 16px; /* prevent iOS zoom */
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+  #submitBtn {
+    padding: 0 18px;
+    font-size: 16px;
+    min-width: 64px;
+    height: 44px;
+  }
+
+  /* Bubbles wider */
+  .bubble { max-width: 92%; font-size: 14px; padding: 10px 14px }
+
+  /* Login card */
+  .login-card {
+    padding: 32px 22px;
+    width: 92vw;
+    max-width: 420px;
+    border-radius: 18px;
+  }
+  .login-card h1 { font-size: 24px }
+  .login-card p { font-size: 12.5px }
+  .login-card input { padding: 14px; font-size: 16px }
+  .login-card button { padding: 14px; font-size: 16px }
+
+  /* Greeting */
+  .greeting .emoji { font-size: 40px }
+  .greeting h2 { font-size: 18px }
+  .greeting .tips { padding: 0 12px }
+  .greeting .tip-item { font-size: 12px }
+  .greeting .template {
+    font-size: 12px;
+    padding: 12px 14px;
+    padding-right: 50px;
+    max-width: 95%;
+  }
+
+  /* Pipeline status: scrollable */
+  #pipeline-status {
+    padding: 6px 10px;
+    font-size: 11px;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  #pipeline-status .pipeline-step { margin-right: 12px }
+
+  /* Conversation items: larger touch targets */
+  .conv-item { padding: 12px 14px; font-size: 14px }
+  .conv-item .dismiss { font-size: 18px; right: 10px }
+  .add-new { padding: 12px; font-size: 14px }
+}
+
+/* ---- Tablet (769px - 1024px) ---- */
+@media (min-width: 769px) and (max-width: 1024px) {
+  #sidebar { --sidebar-width: 240px }
+  #chat-content { padding: 16px 24px 8px }
+}
+
+/* ---- Ensure dvh fallback for browsers that don't support it ---- */
+@supports (height: 100dvh) {
+  #app-root {
+    height: 100dvh;
+  }
+}
+
+/* ---- Ensure layout works with address bar on mobile ---- */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari specific fix for 100vh with address bar */
+  #app-root {
+    height: -100vh;
+    height: 100dvh;
+  }
+  #sidebar {
+    height: -100vh;
+    height: 100dvh;
+  }
+}

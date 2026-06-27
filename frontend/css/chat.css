@@ -1,0 +1,222 @@
+/* =============================================================
+   chat.css  —  消息气泡 / 输入框 / 按钮 / 会话列表 / 欢迎页
+   ============================================================= */
+
+/* ---- Conversation list items ---- */
+.conv-item {
+  padding: 9px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--nav-text);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background .12s;
+  position: relative;
+}
+.conv-item:hover { background: rgba(255,255,255,.07) }
+.conv-item.active { background: var(--accent); color: #fff }
+.conv-item .dismiss {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: .35;
+  font-size: 14px;
+  cursor: pointer;
+}
+.conv-item .dismiss:hover { opacity: 1 }
+
+/* ---- Greeting (empty chat) ---- */
+.greeting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--muted);
+  text-align: center;
+  animation: rise .45s ease;
+}
+.greeting .emoji { font-size: 52px; margin-bottom: 14px }
+.greeting h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+.greeting .tips {
+  max-width: 520px;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 16px;
+}
+.greeting .tips h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+  text-align: center;
+}
+.greeting .tip-item {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin-bottom: 4px;
+  padding-left: 8px;
+  border-left: 2px solid var(--line);
+}
+.greeting .template {
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  max-width: 520px;
+  width: 100%;
+  text-align: left;
+  transition: border-color .12s;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+  position: relative;
+  padding-right: 60px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -webkit-touch-callout: none;
+}
+.greeting .template:hover { border-color: var(--accent) }
+.greeting .template .copyHint {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 11px;
+  color: var(--accent);
+  opacity: .6;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+/* ---- Message bubbles ---- */
+.bubble {
+  max-width: 75%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+  animation: bpop .18s ease;
+}
+.bubble.user {
+  background: var(--user-bubble);
+  color: #fff;
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+}
+.bubble.bot {
+  background: var(--bot-bubble);
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 4px;
+}
+.bubble .label {
+  font-size: 10.5px;
+  font-weight: 600;
+  opacity: .45;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+@keyframes bpop {
+  from { opacity: 0; transform: translateY(6px) scale(.97) }
+  to   { opacity: 1; transform: translateY(0) scale(1) }
+}
+
+/* ---- Spinner ---- */
+.spinner span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: blink 1.2s infinite;
+  margin: 0 2px;
+}
+.spinner span:nth-child(2) { animation-delay: .15s }
+.spinner span:nth-child(3) { animation-delay: .3s }
+
+@keyframes blink {
+  0%, 80%, 100% { transform: scale(.5); opacity: .35 }
+  40%           { transform: scale(1); opacity: 1 }
+}
+
+/* ---- Input textarea + send button ---- */
+#userInput {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  resize: none;
+  outline: none;
+  background: var(--bg);
+  color: var(--ink);
+  transition: border-color .12s;
+  min-height: 36px;
+  max-height: none;
+}
+#userInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+
+#submitBtn {
+  padding: 0 22px;
+  height: 48px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13.5px;
+  transition: background .12s;
+  flex-shrink: 0;
+}
+#submitBtn:hover { background: var(--accent-hover) }
+#submitBtn:disabled { opacity: .5; cursor: not-allowed }
+
+/* Mobile user info in sidebar */
+.nav-mobile-user {
+  display: none;
+}
+.nav-mobile-user span {
+  font-size: 13px;
+  color: var(--nav-text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-mobile-user button {
+  background: rgba(255,255,255,.08);
+  border: none;
+  color: var(--nav-text);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nav-mobile-user button:hover { background: rgba(255,255,255,.15) }

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>志愿Agent</title>
+<link rel="stylesheet" href="/css/layout.css">
+<link rel="stylesheet" href="/css/chat.css">
+<link rel="stylesheet" href="/css/responsive.css">
+</head>
+<body>
+
+<!-- ============ Login Screen ============ -->
+<div class="login-wrap" id="loginScreen">
+  <div class="login-card">
+    <h1>志愿Agent</h1>
+    <p>高考志愿填报 AI 助手 — 登录后开始使用</p>
+    <input type="text" id="loginUser" placeholder="用户名" autocomplete="username">
+    <input type="password" id="loginPass" placeholder="密码" autocomplete="current-password">
+    <button id="loginBtn" onclick="doLogin()">登 录</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-hint">请联系管理员获取账号 · 账号仅限个人使用</div>
+  </div>
+</div>
+
+<!-- ============ Main App ============ -->
+<div id="app-root" style="display:none">
+
+  <!-- Mobile overlay -->
+  <div class="nav-overlay" id="navOverlay"></div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1>志愿Agent</h1>
+      <div class="nav-user"><span id="userName"></span><button onclick="doLogout()">退出</button></div>
+    </div>
+    <div class="nav-mobile-user"><span id="mobileUserName"></span><button onclick="doLogout();closeSidebar()">退出</button></div>
+    <div id="conv-list"></div>
+    <div class="sidebar-footer">
+      <div class="add-new" id="addNew">+ 新建对话</div>
+    </div>
+  </div>
+
+  <!-- Sidebar resize handle -->
+  <div id="sidebar-resizer"></div>
+
+  <!-- Main Panel -->
+  <div id="main-panel">
+    <!-- Topbar -->
+    <div id="topbar">
+      <button class="hamburger" id="hamburgerBtn" onclick="toggleSidebar()">
+        <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="title">志愿填报助手</span>
+      <button id="darkToggle">&#127769; 切换主题</button>
+    </div>
+
+    <!-- Chat content -->
+    <div id="chat-content"></div>
+
+    <!-- Pipeline status bar -->
+    <div id="pipeline-status">
+      <span class="pipeline-step" data-step="1">● 信息提取</span>
+      <span class="pipeline-step" data-step="2">● 数据库查询</span>
+      <span class="pipeline-step" data-step="3">● 联网搜索</span>
+      <span class="pipeline-step" data-step="4">● AI 分析</span>
+      <span class="progress" id="pipelineProgress"></span>
+    </div>
+
+    <!-- Input resize handle -->
+    <div id="input-resizer"></div>
+
+    <!-- Input panel -->
+    <div id="input-panel">
+      <textarea id="userInput" placeholder="输入消息，Enter 发送，Shift+Enter 换行..."></textarea>
+      <button id="submitBtn">发送</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ============ Scripts ============ -->
+<script src="/js/layout-resize.js"></script>
+<script src="/js/stream.js"></script>
+<script src="/js/chat.js"></script>
+</body>
+</html>

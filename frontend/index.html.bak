@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>志愿Agent</title>
+<style>
+:root{
+  --bg:#eef1f5;--nav:#151d28;--nav-text:#94a3b8;--sheet:#fff;--line:#e2e8f0;
+  --ink:#0f172a;--muted:#64748b;--accent:#2563eb;--accent-hover:#1d4ed8;
+  --ok:#16a34a;--bad:#dc2626;--user-bubble:#3b82f6;--bot-bubble:#f1f5f9;
+  --radius:14px;
+}
+body.dark{
+  --bg:#0b1120;--nav:#0b1120;--nav-text:#64748b;--sheet:#111827;--line:#1e293b;
+  --ink:#e5e7eb;--muted:#6b7280;--bot-bubble:#1e293b;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  font:14px/1.65 'Inter','PingFang SC','Microsoft YaHei','Helvetica Neue',sans-serif;
+  background:var(--bg);color:var(--ink);display:flex;
+  transition:background .3s,color .3s;
+}
+
+/* ==================== Login Screen ==================== */
+.login-wrap{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#1e3a5f 0%,#0f172a 50%,#1a1a2e 100%)}
+.login-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  border-radius:24px;padding:48px 40px;width:400px;max-width:90vw;text-align:center;
+  backdrop-filter:blur(24px);box-shadow:0 30px 80px rgba(0,0,0,.4)}
+.login-card h1{color:#fff;font-size:28px;font-weight:700;margin-bottom:6px;letter-spacing:-.5px}
+.login-card p{color:rgba(255,255,255,.5);font-size:13px;margin-bottom:28px}
+.login-card input{width:100%;padding:12px 16px;border:1px solid rgba(255,255,255,.15);border-radius:10px;
+  font:inherit;background:rgba(255,255,255,.08);color:#fff;outline:none;margin-bottom:12px;
+  transition:border-color .12s}
+.login-card input::placeholder{color:rgba(255,255,255,.3)}
+.login-card input:focus{border-color:var(--accent)}
+.login-card button{width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:10px;
+  font:inherit;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;transition:background .12s}
+.login-card button:hover{background:var(--accent-hover)}
+.login-card button:disabled{opacity:.5;cursor:not-allowed}
+.login-err{color:#fca5a5;font-size:12.5px;margin-top:10px;min-height:18px}
+.login-hint{margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,.08);
+  color:rgba(255,255,255,.3);font-size:12px;line-height:1.7}
+
+/* ==================== Sidebar ==================== */
+.nav{width:270px;background:var(--nav);color:var(--nav-text);display:flex;flex-direction:column;flex-shrink:0}
+.nav-top{padding:22px 18px 14px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between}
+.nav-top h1{font-size:19px;font-weight:700;color:#fff;letter-spacing:-.4px}
+.nav-user{display:flex;align-items:center;gap:8px}
+.nav-user span{font-size:12px;color:var(--nav-text)}
+.nav-user button{background:rgba(255,255,255,.08);border:none;color:var(--nav-text);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer}
+.nav-user button:hover{background:rgba(255,255,255,.15)}
+.conv{overflow-y:auto;padding:6px 10px;flex:1;min-height:50px}
+.conv::-webkit-scrollbar{width:4px}
+.conv::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:2px}
+.conv-item{padding:9px 12px;border-radius:7px;cursor:pointer;font-size:12.5px;color:var(--nav-text);margin-bottom:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .12s;position:relative}
+.conv-item:hover{background:rgba(255,255,255,.07)}
+.conv-item.active{background:var(--accent);color:#fff}
+.conv-item .dismiss{position:absolute;right:8px;top:50%;transform:translateY(-50%);opacity:.35;font-size:14px;cursor:pointer}
+.conv-item .dismiss:hover{opacity:1}
+.add-new{margin:6px 10px 14px;padding:9px;text-align:center;border:1px dashed rgba(255,255,255,.18);border-radius:7px;
+  cursor:pointer;font-size:12.5px;color:var(--nav-text);transition:all .12s}
+.add-new:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.35)}
+
+/* ==================== Content Area ==================== */
+.content{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg)}
+.topbar{height:58px;display:flex;align-items:center;padding:0 20px;border-bottom:1px solid var(--line);gap:8px;background:var(--sheet)}
+.topbar .title{font-weight:700;font-size:16px;margin-right:auto;color:var(--ink)}
+.topbar button{padding:5px 12px;border:1px solid var(--line);border-radius:7px;background:var(--bg);cursor:pointer;font-size:12.5px;color:var(--ink);transition:all .12s;font-weight:500}
+.topbar button:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ==================== Chat Box ==================== */
+.chatbox{flex:1;overflow-y:auto;padding:22px 36px 8px;scroll-behavior:smooth}
+.chatbox::-webkit-scrollbar{width:5px}
+.chatbox::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.greeting{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center;animation:rise .45s ease}
+.greeting .emoji{font-size:52px;margin-bottom:14px}
+.greeting h2{font-size:22px;font-weight:700;color:var(--ink);margin-bottom:12px}
+.greeting .tips{max-width:520px;width:100%;text-align:left;margin-bottom:16px}
+.greeting .tips h3{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:8px;text-align:center}
+.greeting .tip-item{font-size:13px;line-height:1.7;color:var(--muted);margin-bottom:4px;padding-left:8px;border-left:2px solid var(--line)}
+.greeting .template{background:var(--sheet);border:1px solid var(--line);border-radius:12px;padding:14px 18px;font-size:13px;color:var(--ink);
+  cursor:pointer;max-width:520px;width:100%;text-align:left;transition:border-color .12s;line-height:1.8;white-space:pre-wrap;word-break:break-word;
+  position:relative;padding-right:60px;user-select:none;-webkit-user-select:none;-moz-user-select:none;-webkit-touch-callout:none}
+.greeting .template:hover{border-color:var(--accent)}
+.greeting .template .copyHint{position:absolute;top:10px;right:12px;font-size:11px;color:var(--accent);opacity:.6}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+.bubble{max-width:75%;padding:12px 16px;border-radius:12px;margin-bottom:10px;font-size:13px;line-height:1.8;
+  white-space:pre-wrap;word-break:break-word;animation:bpop .18s ease}
+.bubble.user{background:var(--user-bubble);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+.bubble.bot{background:var(--bot-bubble);border:1px solid var(--line);border-bottom-left-radius:4px}
+.bubble .label{font-size:10.5px;font-weight:600;opacity:.45;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+@keyframes bpop{from{opacity:0;transform:translateY(6px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* ==================== Input Bar ==================== */
+.inputbar{padding:10px 20px 16px;display:flex;gap:8px;background:var(--sheet);border-top:1px solid var(--line)}
+.inputbar textarea{flex:1;padding:10px 14px;border:1px solid var(--line);border-radius:10px;font:inherit;resize:none;
+  height:48px;outline:none;background:var(--bg);color:var(--ink);transition:border-color .12s}
+.inputbar textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.inputbar button{padding:0 22px;background:var(--accent);color:#fff;border:none;border-radius:10px;cursor:pointer;
+  font-weight:600;font-size:13.5px;transition:background .12s}
+.inputbar button:hover{background:var(--accent-hover)}
+.inputbar button:disabled{opacity:.5;cursor:not-allowed}
+
+/* ==================== Loading ==================== */
+.spinner span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite;margin:0 2px}
+.spinner span:nth-child(2){animation-delay:.15s}
+.spinner span:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,80%,100%{transform:scale(.5);opacity:.35}40%{transform:scale(1);opacity:1}}
+
+/* ==================== Responsive ==================== */
+.hamburger{display:none;align-items:center;justify-content:center;width:40px;height:40px;
+  border:none;background:transparent;cursor:pointer;border-radius:8px;padding:0;margin-right:2px;
+  flex-shrink:0}
+.hamburger:hover{background:var(--line)}
+.hamburger svg{width:24px;height:24px;stroke:var(--ink);stroke-width:2;fill:none;
+  stroke-linecap:round;stroke-linejoin:round}
+.nav-overlay{display:none !important}
+.nav-mobile-user{display:none !important}
+
+@media(max-width:768px){
+  /* Sidebar: slide-in drawer */
+  .nav{position:fixed;left:0;top:0;bottom:0;z-index:400;width:280px;max-width:85vw;
+    transform:translateX(-100%);transition:transform .25s ease;box-shadow:4px 0 24px rgba(0,0,0,.3)}
+  .nav.open{transform:translateX(0)}
+  .nav-overlay{display:none;position:fixed;inset:0;z-index:399;background:rgba(0,0,0,.5)}
+  .nav-overlay.open{display:block}
+  /* Show hamburger + mobile user info */
+  .hamburger{display:inline-flex}
+  .nav-user{display:none !important}
+  .nav-mobile-user{display:flex !important;align-items:center;gap:8px;padding:10px 14px;
+    border-bottom:1px solid rgba(255,255,255,.07)}
+  .nav-mobile-user span{font-size:13px;color:var(--nav-text);flex:1;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nav-mobile-user button{background:rgba(255,255,255,.08);border:none;color:var(--nav-text);
+    padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap}
+  .nav-mobile-user button:hover{background:rgba(255,255,255,.15)}
+  /* Content adjustments */
+  .chatbox{padding:10px 10px}
+  .topbar{padding:0 10px;height:50px}
+  .topbar .title{font-size:15px}
+  .topbar button{padding:6px 10px;font-size:13px}
+  .inputbar{padding:6px 8px 12px}
+  .inputbar textarea{height:44px;padding:10px 12px;font-size:16px}
+  .inputbar button{padding:0 18px;font-size:16px;min-width:64px}
+  /* Bubbles wider on mobile */
+  .bubble{max-width:92%;font-size:14px;padding:10px 14px}
+  /* Login card */
+  .login-card{padding:32px 22px;width:92vw;max-width:420px;border-radius:18px}
+  .login-card h1{font-size:24px}
+  .login-card p{font-size:12.5px}
+  .login-card input{padding:14px;font-size:16px}
+  .login-card button{padding:14px;font-size:16px}
+  /* Greeting */
+  .greeting .emoji{font-size:40px}
+  .greeting h2{font-size:18px}
+  .greeting .tips{padding:0 12px}
+  .greeting .tip-item{font-size:12px}
+  .greeting .template{font-size:12px;padding:12px 14px;padding-right:50px;max-width:95%}
+  /* Pipeline status: scrollable */
+  .pipeline-status{padding:6px 10px;font-size:11px;overflow-x:auto;
+    white-space:nowrap;-webkit-overflow-scrolling:touch}
+  .pipeline-status .step{margin-right:12px}
+  /* Conversation items: larger touch targets */
+  .conv-item{padding:12px 14px;font-size:14px}
+  .conv-item .dismiss{font-size:18px;right:10px}
+  .add-new{padding:12px;font-size:14px}
+}
+
+/* ==================== Progress bar (data pipeline) ==================== */
+.pipeline-status{padding:8px 20px;font-size:12px;color:var(--muted);background:var(--sheet);border-top:1px solid var(--line)}
+.pipeline-status .step{display:inline-block;margin-right:16px;opacity:.4;transition:opacity .2s}
+.pipeline-status .step.active{opacity:1;color:var(--accent);font-weight:600}
+.pipeline-status .step.done{opacity:.7;color:var(--ok)}
+.pipeline-status .progress{float:right;color:var(--accent);font-weight:500}
+
+/* ==================== Toast ==================== */
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-20px);
+  background:var(--ink);color:var(--bg);padding:10px 24px;border-radius:10px;font-size:13px;
+  z-index:9999;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- ============ Login Screen ============ -->
+<div class="login-wrap" id="loginScreen">
+  <div class="login-card">
+    <h1>志愿Agent</h1>
+    <p>高考志愿填报 AI 助手 — 登录后开始使用</p>
+    <input type="text" id="loginUser" placeholder="用户名" autocomplete="username">
+    <input type="password" id="loginPass" placeholder="密码" autocomplete="current-password">
+    <button id="loginBtn" onclick="doLogin()">登 录</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-hint">请联系管理员获取账号 · 账号仅限个人使用</div>
+  </div>
+</div>
+
+<!-- ============ Main App ============ -->
+<div id="appShell" style="display:none;flex-direction:row;width:100%;height:100%">
+
+<!-- Mobile overlay -->
+<div class="nav-overlay" id="navOverlay"></div>
+
+<!-- Sidebar -->
+<div class="nav" id="sidebar">
+  <div class="nav-top">
+    <h1>志愿Agent</h1>
+    <div class="nav-user"><span id="userName"></span><button onclick="doLogout()">退出</button></div>
+  </div>
+  <div class="nav-mobile-user"><span id="mobileUserName"></span><button onclick="doLogout();closeSidebar()">退出</button></div>
+  <div class="conv" id="convList"></div>
+  <div class="add-new" id="addNew">+ 新建对话</div>
+</div>
+
+<!-- Main -->
+<div class="content">
+  <div class="topbar">
+    <button class="hamburger" id="hamburgerBtn" onclick="toggleSidebar()">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <span class="title">志愿填报助手</span>
+    <button id="darkToggle">🌓 切换主题</button>
+  </div>
+  <div class="chatbox" id="chatbox"></div>
+  <div class="pipeline-status" id="pipelineStatus">
+    <span class="step" data-step="1">● 信息提取</span>
+    <span class="step" data-step="2">● 数据库查询</span>
+    <span class="step" data-step="3">● 联网搜索</span>
+    <span class="step" data-step="4">● AI 分析</span>
+    <span class="progress" id="pipelineProgress"></span>
+  </div>
+  <div class="inputbar">
+    <textarea id="userInput" placeholder="输入消息，Enter 发送，Shift+Enter 换行..."></textarea>
+    <button id="submitBtn">发送</button>
+  </div>
+</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ======================================================
+   志愿Agent 前端 — 含登录认证
+   ====================================================== */
+
+var SID_KEY = 'zf_sid';
+var sessions = {};
+var activeId = '';
+var busy = false;
+var currentUser = '';
+
+try { sessions = JSON.parse(localStorage.getItem('zf_sessions') || '{}'); } catch(e) { sessions = {}; }
+activeId = localStorage.getItem('zf_active') || '';
+
+var TEMPLATE_TEXT = "我是【省份】考生，选科【物理/历史】，\n今年考了【分数】分，全省排名大概【位次】名。\n家里是【普通工薪/做生意的/爸妈在XX行业】，\n想去【城市或省份】，最讨厌学【数学/背书/都还行】，\n毕业想【找个好工作/考公务员/考研/稳定就行】。\n帮我推荐专业和学校。";
+
+var SYS_PROMPT = "现在是2026年6月，2026年高考已结束，志愿填报正在进行中。你是资深高考志愿规划师，风格直爽接地气。\n\n【格式要求】\n- 不要用###、**等Markdown标记\n- 不要用加粗、斜体等格式符号\n- 用数字序号和破折号做标题，例如：一、冲的学校\n- 纯文本输出即可，网页会自动处理换行\n\n【核心规则】\n1. 省份志愿政策感知（2025年起全部新高考）：\n   专业+院校模式（浙江80/山东96/河北96/重庆96/辽宁112）→推荐至少30-50所\n   院校+专业组模式（江苏40/广东45/湖北45/湖南45/福建40/北京30/天津50/上海24/海南24/河南48/四川45/陕西45/山西45/云南40/贵州45/内蒙古45/安徽45/江西45/黑龙江40/吉林40/广西40/甘肃45/新疆45/宁夏45/青海45/西藏45）→推荐填满80%+\n2. 冲稳保比例：冲20%稳50%保30%，保底至少3个\n3. 用户提供的数据默认准确不质疑\n4. 数据使用铁律：\n   - [真实录取数据]来自考试院官方，逐条引用标注\n   - [联网搜索]标注\'据网上公开信息，仅供参考\'\n   - 数据库和联网搜索都没数据的学校，说\'暂无该校数据\'，禁止编造分数位次\n   - 如果DB返回空+联网也没搜到，说\'建议查省考试院官网\'，不准编造\n5. 专业过滤：用户说了想学什么专业，就只推荐这些或相关方向\n6. 普通家庭优先技术类（计算机/软件/电子/电气/自动化/机械）\n7. 生化环材土木护理等天坑专业主动提醒避开\n8. 注意区分：用户说\'家庭环境普通\'是指经济条件，不是指环境专业！不要误解为想学环境专业\n\n【回答结构】\n一、确认省份政策（你是XX省考生，XX模式，可填N个志愿...）\n二、冲的学校\n三、稳的学校\n四、保的学校\n五、补充建议\n\n【往年排名引用要求】\n推荐每所学校时，必须在回答中引用参考资料中提供的具体分数和位次数据。格式：\n  合肥工业大学 计算机 2024年 595分 31000位\n不要只写学校名，一定要带上专业、年份、分数、位次！这样用户才能判断是否可报。\n如果参考资料里有数据就引用，没有就说\'暂无该校往年数据\'\n\n重要:不要只给3-5所学校。DB数据优先。没有真实数据的学校不要瞎编分数位次。\n\n【追问规则】回答末尾检查这些信息是否清楚（不全就问，全就不问）：\n1.省份+文理科 2.分数+位次 3.选科 4.想学什么+排斥什么 5.家里在哪/想去哪 6.父母做什么+年收入 7.家里资源 8.考研还是就业 9.冲985211还是行业强校 10.接受调剂吗 11.学费范围。挑1-2个最关键的追问。";
+
+// ---- Toast ----
+var toastTimer = null;
+function showToast(msg){
+  var t = $('toast');
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){t.classList.remove('show');}, 2000);
+}
+
+// ---- Helpers ----
+function $(id){return document.getElementById(id);}
+
+function pipelineStep(n, progress){
+  var steps = document.querySelectorAll('[data-step]');
+  for(var i=0;i<steps.length;i++){
+    var s = parseInt(steps[i].dataset.step);
+    steps[i].className = s < n ? 'step done' : s === n ? 'step active' : 'step';
+  }
+  var ps = document.getElementById('pipelineProgress');
+  if(ps && progress) ps.textContent = progress;
+}
+function pipelineDone(progress){
+  var steps = document.querySelectorAll('[data-step]');
+  for(var i=0;i<steps.length;i++) steps[i].className = 'step done';
+  var ps = document.getElementById('pipelineProgress');
+  if(ps && progress) ps.textContent = progress;
+}
+
+function persist(){
+  try{
+    localStorage.setItem('zf_sessions', JSON.stringify(sessions));
+    localStorage.setItem('zf_active', activeId);
+  }catch(e){}
+}
+function escapeHtml(s){var t=String(s);return t.replace(/&/g,'&#38;').replace(/</g,'&#60;').replace(/>/g,'&#62;');}
+function stripMarkdown(s){
+  try{
+    return s
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/\*(.+?)\*/g, '$1')
+      .replace(/__(.+?)__/g, '$1')
+      .replace(/_(.+?)_/g, '$1')
+      .replace(/~~(.+?)~~/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/^[-*+]\s+/gm, '· ')
+      .replace(/^>\s+/gm, '')
+      .replace(/```[\s\S]*?```/g, function(m){return m.replace(/```[a-z]*\n?/g,'').replace(/```$/g,'');})
+      ;
+  }catch(e){return s;}
+}
+
+// ---- Auth ----
+function getSessionId(){
+  var m = document.cookie.match(/sid=([^;]+)/);
+  return m ? m[1] : '';
+}
+function setSessionId(sid){
+  document.cookie = 'sid='+sid+'; Path=/; Max-Age=86400';
+  localStorage.setItem(SID_KEY, sid);
+}
+
+async function doLogin(){
+  var u = $('loginUser').value.trim();
+  var p = $('loginPass').value.trim();
+  var err = $('loginErr');
+  if(!u || !p){err.textContent='请输入用户名和密码';return;}
+  err.textContent='正在登录...';
+  var btn = $('loginBtn');
+  btn.disabled = true;
+  btn.textContent = '登录中...';
+  try{
+    var r = await fetch('/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'same-origin',
+      body: JSON.stringify({username:u, password:p})
+    });
+    if(!r.ok){
+      throw new Error('服务器返回错误: '+r.status);
+    }
+    var d = await r.json();
+    if(d.ok){
+      setSessionId(d.session_id);
+      currentUser = d.username;
+      err.textContent='';
+      $('loginScreen').style.display = 'none';
+      $('appShell').style.display = 'flex';
+      $('userName').textContent = currentUser;
+      $('mobileUserName').textContent = currentUser;
+      initApp();
+    } else {
+      err.textContent = d.error || '登录失败';
+    }
+  }catch(e){
+    err.textContent = '登录失败: '+e.message+' (请检查服务器是否运行)';
+    console.error('Login error:', e);
+  }
+  btn.disabled = false;
+  btn.textContent = '登 录';
+}
+
+function doLogout(){
+  fetch('/logout',{method:'POST'}).catch(function(){});
+  localStorage.removeItem(SID_KEY);
+  document.cookie = 'sid=; Path=/; Max-Age=0';
+  currentUser = '';
+  $('appShell').style.display = 'none';
+  $('loginScreen').style.display = 'flex';
+  $('loginUser').value = '';
+  $('loginPass').value = '';
+}
+
+async function checkAuth(){
+  var sid = localStorage.getItem(SID_KEY) || '';
+  if(!sid) return false;
+  try{
+    var r = await fetch('/config',{credentials:'same-origin'});
+    if(r.ok){
+      var d = await r.json();
+      if(d.username){
+        currentUser = d.username;
+        return true;
+      }
+    }
+  }catch(e){}
+  localStorage.removeItem(SID_KEY);
+  return false;
+}
+
+// ---- Session Management ----
+async function createSession(){
+  var id = Date.now() + '';
+  sessions[id] = {name:'新对话', messages:[]};
+  activeId = id;
+  persist();
+  paint();
+  // 保存到数据库
+  if(currentUser){
+    try{
+      await fetch('/api/conversations',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        credentials:'same-origin',
+        body: JSON.stringify({action:'save', session_id:id, title:'新对话'})
+      });
+    }catch(e){}
+  }
+}
+
+async function removeSession(id){
+  delete sessions[id];
+  if(activeId === id){
+    var keys = Object.keys(sessions);
+    activeId = keys.length ? keys[keys.length-1] : '';
+    if(!activeId) createSession();
+  }
+  persist();
+  paint();
+  // 从数据库删除
+  if(currentUser){
+    try{
+      await fetch('/api/conversations/delete',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        credentials:'same-origin',
+        body: JSON.stringify({session_id:id})
+      });
+    }catch(e){}
+  }
+}
+
+async function switchSession(id){
+  activeId = id;
+  persist();
+  paint();
+  // 从数据库加载消息
+  if(currentUser){
+    try{
+      var r = await fetch('/api/messages/load',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        credentials:'same-origin',
+        body: JSON.stringify({session_id:id})
+      });
+      if(r.ok){
+        var d = await r.json();
+        if(d.messages && d.messages.length){
+          sessions[id].messages = d.messages.map(function(m){return {role:m.role, text:m.content};});
+          persist();
+          paint();
+        }
+      }
+    }catch(e){}
+  }
+}
+
+// ---- Load conversations from server on startup ----
+async function loadConversationsFromServer(){
+  if(!currentUser) return;
+  try{
+    var r = await fetch('/api/conversations',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      credentials:'same-origin',
+      body: JSON.stringify({action:'list'})
+    });
+    if(r.ok){
+      var d = await r.json();
+      if(d.conversations && d.conversations.length){
+        d.conversations.forEach(function(c){
+          if(!sessions[c.session_id]){
+            sessions[c.session_id] = {name:c.title||'对话', messages:[]};
+          }
+        });
+        if(!activeId || !sessions[activeId]){
+          activeId = d.conversations[0].session_id;
+        }
+        persist();
+        paint();
+      }
+    }
+  }catch(e){}
+}
+
+// ---- Render ----
+function paint(){
+  var html = '';
+  Object.keys(sessions).forEach(function(id){
+    var s = sessions[id];
+    var preview = '';
+    if(s.messages && s.messages.length){
+      preview = s.messages[s.messages.length-1].text.substring(0, 20);
+    } else {
+      preview = '空对话';
+    }
+    var activeCls = id === activeId ? ' active' : '';
+    html += '<div class="conv-item'+activeCls+'" data-id="'+id+'">'+escapeHtml(s.name || preview)
+      +'<span class="dismiss" data-remove="'+id+'">&times;</span></div>';
+  });
+  var cl = $('convList');
+  if(cl) cl.innerHTML = html;
+
+  var cb = $('chatbox');
+  if(!cb) return;
+  if(!activeId || !sessions[activeId] || !sessions[activeId].messages || !sessions[activeId].messages.length){
+    cb.innerHTML = '<div class="greeting"><div class="emoji">🎓</div><h2>志愿填报助手</h2>'+
+      '<div class="tips"><h3>使用技巧</h3>'+
+      '<div class="tip-item">位次比分数重要 — 有全省排名一定带上</div>'+
+      '<div class="tip-item">讨厌什么和喜欢什么一样重要 — 说清楚不能接受的，Agent 帮你避开</div>'+
+      '<div class="tip-item">家里干什么的别不好意思说 — 爸妈在电力、铁路、医院、学校、做生意的，这决定了很多隐藏的好路</div>'+
+      '<div class="tip-item">多聊几轮效果更好 — Agent 追问的时候认真答，聊得越深建议越准</div></div>'+
+      '<div class="template" id="sampleQ"><span class="copyHint">点击复制</span>'+escapeHtml(TEMPLATE_TEXT)+'</div></div>';
+    return;
+  }
+  var out = '';
+  var msgs = sessions[activeId].messages;
+  for(var i = 0; i < msgs.length; i++){
+    var m = msgs[i];
+    if(!m) continue;
+    var who = m.role === 'user' ? '你' : '顾问';
+    var cls = m.role === 'user' ? 'user' : 'bot';
+    var txt = m.role === 'user' ? m.text : stripMarkdown(m.text);
+    out += '<div class="bubble '+cls+'"><div class="label">'+who+'</div>'+escapeHtml(txt)+'</div>';
+  }
+  cb.innerHTML = out;
+  cb.scrollTop = cb.scrollHeight;
+}
+
+// ---- Regex-based Info Extraction ----
+function parseInfo(text){
+  var info = {province:'', rank:0, score:0, major:'', school:''};
+  var provs = ['北京','天津','上海','重庆','河北','山西','辽宁','吉林','黑龙江','江苏','浙江','安徽','福建','江西','山东','河南','湖北','湖南','广东','广西','海南','四川','贵州','云南','西藏','陕西','甘肃','青海','宁夏','新疆','内蒙古'];
+  var best = text.length, bp = '';
+  for(var i = 0; i < provs.length; i++){
+    var idx = text.indexOf(provs[i]);
+    if(idx >= 0 && idx < best){best = idx; bp = provs[i];}
+  }
+  info.province = bp;
+  var rm = text.match(/(\d{4,7})\s*[位名]/) || text.match(/[位名]次?\s*(\d{4,7})/) || text.match(/排[名行]\s*(\d{4,7})/);
+  if(rm) info.rank = parseInt(rm[1]) || parseInt(rm[2]) || 0;
+  var sm = text.match(/(\d{3})\s*分/) || text.match(/分数\s*(\d{3})/);
+  if(sm) info.score = parseInt(sm[1]);
+  var majors = ['计算机','软件','电气','机械','自动化','土木','临床','口腔','法学','会计','金融','物联网','人工智能','大数据','电子','通信','材料','化工','生物','医学','护理','师范','英语','新闻','设计','美术','音乐','体育','汉语言','数学','化学','地理','航空航天','能源','交通'];
+  var contextMajors = ['环境'];
+  var neg = text.match(/(?:不学|不接受|不读|不选|别推荐|别学|拒绝|排斥|不想学|不考虑).*?(?:[。，,;\n]|$)/g) || [];
+  var negStr = neg.join('');
+  var found = [];
+  for(var i = 0; i < majors.length; i++){
+    if(text.indexOf(majors[i]) >= 0 && negStr.indexOf(majors[i]) < 0) found.push(majors[i]);
+  }
+  for(var i = 0; i < contextMajors.length; i++){
+    var cm = contextMajors[i];
+    if(text.indexOf(cm) >= 0 && negStr.indexOf(cm) < 0){
+      var pos = text.indexOf(cm);
+      var before = text.substring(Math.max(0, pos - 4), pos);
+      var easyWords = ['家庭','经济','生长','生活','社会','工作','自然','实验'];
+      var isContext = false;
+      for(var j = 0; j < easyWords.length; j++){
+        if(before.indexOf(easyWords[j]) >= 0){isContext = true; break;}
+      }
+      if(!isContext) found.push(cm);
+    }
+  }
+  if(found.length) info.major = found.join(',');
+  var sch = text.match(/[一-鿿]{2,8}(大学|学院)/);
+  if(sch) info.school = sch[0];
+  return info;
+}
+
+// ---- Web Search ----
+async function webSearch(q, n){
+  n = n || 3;
+  try{
+    var r = await fetch('/api/tavily',{
+      method:'POST', headers:{'Content-Type':'application/json', 'X-Requested-With':'XMLHttpRequest'},
+      credentials:'same-origin',
+      body: JSON.stringify({query:q, n:n})
+    });
+    if(r.ok){
+      var d = await r.json();
+      if(d.results && d.results.length) return d.results;
+    }
+  }catch(e){console.warn('Tavily fail:',e.message);}
+  try{
+    var r2 = await fetch('/search?q='+encodeURIComponent(q),{credentials:'same-origin'});
+    if(r2.ok){
+      var d2 = await r2.json();
+      if(d2.results && d2.results.length){
+        d2.results.unshift('[百度搜索] Tavily无结果，百度兜底:');
+        return d2.results;
+      }
+    }
+  }catch(e){}
+  return [];
+}
+
+// ---- Knowledge Base Search ----
+async function kbSearch(q){
+  try{
+    var r = await fetch('/kb_search?q='+encodeURIComponent(q),{credentials:'same-origin'});
+    if(r.ok){
+      var d = await r.json();
+      return d.results || [];
+    }
+  }catch(e){console.warn('KB search fail:',e.message);}
+  return [];
+}
+
+// ---- Data Pipeline: AI Extract -> DB Query -> KB Search -> Web Search -> Assemble ----
+async function fetchContext(text){
+  pipelineStep(1);
+
+  // Step 1: AI extract
+  var info = {province:'', rank:0, score:0, subject:'', majors:[], schools:[], keywords:[]};
+  try{
+    var er = await fetch('/api/extract',{
+      method:'POST', headers:{'Content-Type':'application/json', 'X-Requested-With':'XMLHttpRequest'},
+      credentials:'same-origin',
+      body: JSON.stringify({text:text})
+    });
+    if(er.ok){
+      var ai = await er.json();
+      if(ai && !ai.error){
+        info.province = ai.province || '';
+        info.rank = parseInt(ai.rank) || 0;
+        info.score = parseInt(ai.score) || 0;
+        info.subject = ai.subject || '';
+        info.majors = ai.majors || [];
+        info.schools = ai.schools || [];
+        info.keywords = ai.keywords || [];
+      }
+    }
+  }catch(e){console.warn('AI extract fail, fallback regex:',e.message);}
+
+  var re = parseInfo(text);
+  if(!info.province && re.province) info.province = re.province;
+  if(!info.rank && re.rank) info.rank = re.rank;
+  if(!info.score && re.score) info.score = re.score;
+  if(!info.majors.length && re.major) info.majors = [re.major];
+  if(!info.schools.length && re.school) info.schools = [re.school];
+  if(!info.subject){
+    if(text.indexOf('物理') >= 0 || text.indexOf('物化') >= 0) info.subject = '物理类';
+    else if(text.indexOf('历史') >= 0 || text.indexOf('文史') >= 0 || text.indexOf('文科') >= 0) info.subject = '历史类';
+    else if(text.indexOf('理科') >= 0) info.subject = '理科';
+  }
+
+  var skip = !info.province || (!info.rank && !info.score);
+
+  // Step 2: DB query
+  pipelineStep(2);
+  var dbText = '';
+  var rawJ = null;
+  if(!skip){
+    try{
+      var parts = ['province='+encodeURIComponent(info.province), 'rank='+info.rank, 'score='+info.score];
+      if(info.majors && info.majors.length) parts.push('keyword='+encodeURIComponent(info.majors.join(',')));
+      if(info.subject) parts.push('subject='+encodeURIComponent(info.subject));
+      if(info.schools.length) parts.push('school='+encodeURIComponent(info.schools[0]));
+      var resp = await fetch('/recommend?'+parts.join('&'));
+      if(resp.ok){
+        rawJ = await resp.json();
+        try{
+          var sr = await fetch('/db_stats?province='+encodeURIComponent(info.province));
+          if(sr.ok){
+            var st = await sr.json();
+            if(st.total && st.total < 100 && info.rank > 0 && info.rank < (st.min_pos || 0)){
+              dbText += '【注意】本地数据库'+info.province+'数据较少(仅'+st.total+'条)，请重点使用其他来源。\n';
+            }
+          }
+        }catch(e){}
+        if(rawJ.chong || rawJ.wen || rawJ.bao){
+          var tc = (rawJ.chong?rawJ.chong.length:0)+(rawJ.wen?rawJ.wen.length:0)+(rawJ.bao?rawJ.bao.length:0);
+          dbText = '【本地数据库·冲稳保推荐】位次'+(rawJ.pos||info.rank)+'，共'+tc+'条记录\n';
+          if(rawJ.chong && rawJ.chong.length){
+            dbText += '\n▎冲:\n';
+            rawJ.chong.slice(0,15).forEach(function(d){
+              dbText += '- '+d.school+' '+d.program+' '+(d.year||'')+'年 '+(d.score||'?')+'分 '+(d.position||'?')+'位\n';
+            });
+          }
+          if(rawJ.wen && rawJ.wen.length){
+            dbText += '\n▎稳:\n';
+            rawJ.wen.slice(0,15).forEach(function(d){
+              dbText += '- '+d.school+' '+d.program+' '+(d.year||'')+'年 '+(d.score||'?')+'分 '+(d.position||'?')+'位\n';
+            });
+          }
+          if(rawJ.bao && rawJ.bao.length){
+            dbText += '\n▎保:\n';
+            rawJ.bao.slice(0,15).forEach(function(d){
+              dbText += '- '+d.school+' '+d.program+' '+(d.year||'')+'年 '+(d.score||'?')+'分 '+(d.position||'?')+'位\n';
+            });
+          }
+          if(!rawJ.chong.length && !rawJ.wen.length && !rawJ.bao.length){
+            dbText += '(数据库暂无数据)\n';
+          }
+        } else if(rawJ.error){
+          dbText += 'DB查询返回: '+rawJ.error+'\n';
+        }
+      }
+    }catch(e){console.warn('DB query fail:',e.message);}
+  }
+
+  // Step 3: Knowledge base search
+  // Step 4: Web search
+  pipelineStep(3);
+  var webText = '';
+  var kbText = '';
+  try{
+    var queries = [];
+    var dbSchools = [];
+    if(rawJ && rawJ.chong) for(var i=0;i<Math.min(5,rawJ.chong.length);i++) dbSchools.push(rawJ.chong[i].school);
+    if(rawJ && rawJ.wen) for(var i=0;i<Math.min(5,rawJ.wen.length);i++) dbSchools.push(rawJ.wen[i].school);
+    if(rawJ && rawJ.bao) for(var i=0;i<Math.min(5,rawJ.bao.length);i++) dbSchools.push(rawJ.bao[i].school);
+    for(var i=0;i<dbSchools.length;i++){
+      queries.push(dbSchools[i]+' '+info.province+' 2025录取分数线 王牌专业');
+    }
+    if(info.province && info.rank > 0){
+      if(info.majors && info.majors.length){
+        queries.push(info.province+' '+info.rank+'位次 '+info.majors[0]+'专业 2025 能报哪些大学');
+        queries.push(info.province+' 2025年高考 '+info.score+'分 '+info.rank+'名 能上什么大学');
+      } else {
+        queries.push(info.province+' '+info.rank+'位次 2025 能报哪些大学');
+        queries.push(info.province+' 2025年高考 '+info.score+'分 '+info.rank+'名 志愿填报');
+      }
+    }
+    if(info.majors && info.majors.length){
+      queries.push(info.majors[0]+'专业 就业前景 薪资 行业趋势');
+    }
+    if(info.keywords && info.keywords.length){
+      for(var i=0;i<Math.min(3,info.keywords.length);i++) queries.push(info.keywords[i]);
+    }
+    if(skip){
+      queries.push(text+' 高考志愿 推荐学校');
+      if(info.majors && info.majors.length) queries.push(info.majors.join(' ')+'专业 就业前景');
+    }
+    // Dedup
+    var seenQ = {}; var finalQ = [];
+    for(var i=0;i<queries.length;i++){if(!seenQ[queries[i]]){seenQ[queries[i]]=1;finalQ.push(queries[i]);}}
+
+    // KB search
+    var kbQuery = (info.province||'')+' '+(info.majors&&info.majors[0]||'')+' '+(info.schools&&info.schools[0]||'');
+    var kbResults = await kbSearch(kbQuery);
+    if(kbResults.length){
+      kbText = '【知识仓库参考资料】\n';
+      kbResults.slice(0,10).forEach(function(k){kbText += k+'\n\n';});
+    }
+
+    // Web search (batch)
+    var allWeb = [];
+    for(var b=0;b<finalQ.length;b+=5){
+      var batch = finalQ.slice(b, b+5);
+      var tasks = [];
+      for(var i=0;i<batch.length;i++) tasks.push(webSearch(batch[i], 3));
+      try{
+        var results = await Promise.all(tasks);
+        for(var i=0;i<results.length;i++) allWeb = allWeb.concat(results[i]);
+      }catch(e){}
+    }
+    var seen = {}; var unique = [];
+    for(var i=0;i<allWeb.length;i++){
+      var k = allWeb[i].substring(0,50);
+      if(!seen[k]){seen[k]=1;unique.push(allWeb[i]);}
+    }
+    if(unique.length){
+      webText = '【联网搜索·仅供参考】\n';
+      unique.slice(0,20).forEach(function(w){webText += '- '+w.substring(0,400)+'\n';});
+    }
+  }catch(e){console.warn('Search fail:',e.message);}
+
+  // Assemble
+  var result = '[DEBUG] province='+info.province+' rank='+info.rank+' score='+info.score+' majors='+(info.majors||[]).join(',')+'\n';
+  if(dbText) result += dbText+'\n';
+  if(kbText) result += kbText+'\n';
+  if(webText) result += webText+'\n';
+  if(!dbText && !kbText && !webText) result += '所有数据源均无结果。\n';
+  return result;
+}
+
+// ---- Send Message ----
+async function submit(){
+  var inp = $('userInput');
+  if(!inp || busy) return;
+  var text = inp.value.trim();
+  if(!text) return;
+  inp.value = '';
+  busy = true;
+  $('submitBtn').disabled = true;
+
+  try{
+    if(!activeId || !sessions[activeId]) createSession();
+    var sess = sessions[activeId];
+    sess.messages.push({role:'user', text:text});
+    if(sess.name === '新对话') sess.name = text.substring(0,18);
+    paint();
+    persist();
+
+    var cb = $('chatbox');
+    if(!cb){
+      sess.messages.push({role:'assistant', text:'页面异常，请刷新后重试'});
+    } else {
+      var loader = document.createElement('div');
+      loader.className = 'bubble bot';
+      loader.innerHTML = '<div class="label">顾问</div><div id="botStatus"><div class="spinner"><span></span><span></span><span></span></div></div>';
+      cb.appendChild(loader);
+      cb.scrollTop = cb.scrollHeight;
+
+      pipelineStep(1);
+      var context = await fetchContext(text);
+      pipelineDone();
+
+      // Build LLM prompt
+      var msgs = [{role:'system', content:SYS_PROMPT}];
+      if(context && context.indexOf('均无结果') < 0){
+        msgs.push({role:'system', content:'【参考资料，请基于这些数据给出建议】\n'+context});
+      } else {
+        msgs.push({role:'system', content:'【注意】数据源未找到具体数据。建议查省教育考试院官网，禁止编造分数位次。'});
+      }
+
+      var start = Math.max(0, sess.messages.length - 25);
+      for(var i = start; i < sess.messages.length; i++){
+        msgs.push({role: sess.messages[i].role, content: sess.messages[i].text});
+      }
+
+      pipelineStep(4, '正在生成...');
+      var resp = await fetch('/api/chat',{
+        method:'POST',
+        headers:{'Content-Type':'application/json', 'X-Requested-With':'XMLHttpRequest'},
+        credentials:'same-origin',
+        body: JSON.stringify({messages:msgs, temperature:0.7, stream:true, session_id:activeId})
+      });
+      if(!resp.ok){
+        var errBody = await resp.json().catch(function(){return{};});
+        throw new Error('LLM API 错误: '+(errBody.error||'HTTP '+resp.status));
+      }
+
+      var reader = resp.body.getReader();
+      var dec = new TextDecoder();
+      var reply = '';
+      var buf = '';
+      var charCount = 0;
+      var statusEl = $('botStatus');
+      if(statusEl) statusEl.innerHTML = '';
+
+      while(true){
+        var result = await reader.read();
+        if(result.done) break;
+        buf += dec.decode(result.value, {stream:true});
+        var lines = buf.split('\n');
+        buf = lines.pop();
+        for(var li = 0; li < lines.length; li++){
+          var ln = lines[li];
+          if(!ln || !ln.startsWith('data:')) continue;
+          var payload = ln.substring(5).trim();
+          if(payload === '[DONE]' || payload === '"[DONE]"') continue;
+          try{
+            var sd = JSON.parse(payload);
+            var delta = sd.choices && sd.choices[0] && sd.choices[0].delta;
+            if(delta){
+              var chunk = delta.content || delta.reasoning_content || '';
+              if(chunk){
+                reply += chunk;
+                charCount += chunk.length;
+                if(statusEl) statusEl.textContent = stripMarkdown(reply);
+                pipelineStep(4, '生成中 ' + charCount + ' 字');
+                cb.scrollTop = cb.scrollHeight;
+              }
+            }
+          }catch(x){}
+        }
+      }
+      if(context && context.indexOf('均无结果') < 0) reply = '[参考资料]\n'+context+'\n---\n'+reply;
+      else reply = '[查询结果] '+context+'\n---\n'+reply;
+      sess.messages.push({role:'assistant', text:reply});
+      pipelineDone('回答完成 ' + charCount + ' 字');
+    }
+
+  }catch(e){
+    console.error('[submit] error:', e);
+    try{
+      if(activeId && sessions[activeId]){
+        sessions[activeId].messages.push({role:'assistant', text:'出错：'+e.message+'\n请稍后重试'});
+      }
+      pipelineDone('出错');
+    }catch(ex){}
+  }
+
+  try{ paint(); }catch(ex){ console.error('[paint] error:', ex); }
+  try{ persist(); }catch(ex){}
+  busy = false;
+  var sb = $('submitBtn');
+  if(sb) sb.disabled = false;
+}
+
+// ---- Event Binding ----
+function on(id, ev, fn){var el=$(id);if(el)el.addEventListener(ev,fn);}
+
+// ---- Mobile Sidebar ----
+function toggleSidebar(){
+  $('sidebar').classList.toggle('open');
+  $('navOverlay').classList.toggle('open');
+}
+function closeSidebar(){
+  $('sidebar').classList.remove('open');
+  $('navOverlay').classList.remove('open');
+}
+
+on('loginPass','keydown',function(e){if(e.key==='Enter')doLogin();});
+on('loginUser','keydown',function(e){if(e.key==='Enter')$('loginPass').focus();});
+on('addNew','click', createSession);
+on('submitBtn','click', submit);
+on('darkToggle','click', function(){
+  document.body.classList.toggle('dark');
+  localStorage.setItem('zf_dark', document.body.classList.contains('dark')?'1':'');
+});
+on('chatbox','click', function(e){
+  if(e.target.closest('#sampleQ')){
+    e.preventDefault();
+    e.stopPropagation();
+    if(window.getSelection) window.getSelection().removeAllRanges();
+    var ta = document.createElement('textarea');
+    ta.textContent = TEMPLATE_TEXT;
+    ta.value = TEMPLATE_TEXT;
+    ta.readOnly = false;
+    ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try{ ta.setSelectionRange(0, 99999); }catch(ignore){}
+    var ok = false;
+    try{ ok = document.execCommand('copy'); }catch(ignore){}
+    document.body.removeChild(ta);
+    if(window.getSelection) window.getSelection().removeAllRanges();
+    if(ok){
+      showToast('复制成功，请按照自己的情况修改【】内容');
+    } else {
+      if($('userInput')){$('userInput').value=TEMPLATE_TEXT;$('userInput').focus();}
+      showToast('模板已填入输入框，请修改【】内容后发送');
+    }
+    return;
+  }
+});
+on('userInput','keydown', function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit();}});
+on('convList','click', function(e){
+  var t=e.target;
+  if(t.dataset.remove){e.stopPropagation();removeSession(t.dataset.remove);return;}
+  var item=t.closest('.conv-item');
+  if(item) switchSession(item.dataset.id);
+});
+on('navOverlay','click', closeSidebar);
+
+// ---- Init ----
+async function initApp(){
+  if(localStorage.getItem('zf_dark')==='1') document.body.classList.add('dark');
+  if(!activeId || !sessions[activeId]) createSession();
+  paint();
+  // 从服务器加载对话列表
+  await loadConversationsFromServer();
+}
+
+async function boot(){
+  if(await checkAuth()){
+    $('loginScreen').style.display = 'none';
+    $('appShell').style.display = 'flex';
+    $('userName').textContent = currentUser;
+    $('mobileUserName').textContent = currentUser;
+    initApp();
+  }
+}
+
+boot();
+</script>
+</body>
+</html>

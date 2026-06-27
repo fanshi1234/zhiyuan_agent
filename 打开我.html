@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>志愿Agent</title>
+<style>
+body{font-family:'Microsoft YaHei',sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#0f172a;color:#cbd5e1}
+.card{text-align:center;max-width:480px;padding:48px 40px;background:#1e293b;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+h2{font-size:24px;font-weight:700;color:#f1f5f9;margin-bottom:8px}
+p{line-height:1.8;font-size:14px;color:#94a3b8}
+.btn{display:inline-block;padding:12px 36px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:15px;cursor:pointer;font-weight:600;margin-top:20px;text-decoration:none;transition:background .15s}
+.btn:hover{background:#1d4ed8}
+.good{color:#22c55e}
+.bad{color:#ef4444}
+</style></head>
+<body>
+<div class="card">
+  <div style="font-size:48px;margin-bottom:16px">🎓</div>
+  <h2 id="status">正在检测服务器...</h2>
+  <p id="msg"></p>
+  <a class="btn" href="http://127.0.0.1:8765/">🔄 打开 / 重试</a>
+</div>
+<script>
+fetch('http://127.0.0.1:8765/health').then(function(r){return r.json();}).then(function(d){
+  if(d.ok){
+    document.getElementById('status').innerHTML='<span class="good">服务器已就绪</span>';
+    document.getElementById('msg').innerHTML='数据库: '+(d.database?'已加载':'未找到')+'<br>即将跳转到志愿Agent...';
+    setTimeout(function(){location.href='http://127.0.0.1:8765/';},1000);
+  }else{
+    document.getElementById('status').innerHTML='<span class="bad">服务器未启动</span>';
+    document.getElementById('msg').innerHTML='请先双击 <b>启动.bat</b><br>看到黑窗口显示"数据库已加载"后，再刷新本页。';
+  }
+}).catch(function(){
+  document.getElementById('status').innerHTML='<span class="bad">服务器未启动</span>';
+  document.getElementById('msg').innerHTML='请先双击 <b>启动.bat</b> 启动服务。<br><br>如果双击没反应：<br>1. 确认已安装 Python（python.org，勾选 Add to PATH）<br>2. 右键 启动.bat → 属性 → 解除锁定<br>3. 还不行就右键 → 以管理员身份运行';
+});
+</script>
+</body>
+</html>
