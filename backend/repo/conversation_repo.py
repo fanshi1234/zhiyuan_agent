@@ -26,14 +26,15 @@ def get_by_user_session(user_id, session_id):
     """获取会话行"""
     conn = get_conn()
     row = conn.execute(
-        "SELECT id, session_id, title, pinned, archived, deleted_at, created_at, updated_at, message_count "
+        "SELECT id, session_id, title, pinned, archived, deleted_at, created_at, updated_at, message_count, "
+        "COALESCE(title_source, 'auto'), COALESCE(title_locked, 0) "
         "FROM conversations WHERE user_id=? AND session_id=? AND deleted_at IS NULL",
         (user_id, session_id)
     ).fetchone()
     conn.close()
     if row is None:
         return None
-    return dict(zip(['id', 'session_id', 'title', 'pinned', 'archived', 'deleted_at', 'created_at', 'updated_at', 'message_count'], row))
+    return dict(zip(['id', 'session_id', 'title', 'pinned', 'archived', 'deleted_at', 'created_at', 'updated_at', 'message_count', 'title_source', 'title_locked'], row))
 
 
 def get_conv_id(user_id, session_id):
@@ -43,14 +44,45 @@ def get_conv_id(user_id, session_id):
 
 
 def update_title(user_id, session_id, title):
-    """重命名会话"""
+    """重命名会话（向后兼容）"""
+    update_title_with_source(user_id, session_id, title, 'manual', 1)
+
+
+def update_title_with_source(user_id, session_id, title, source='auto', locked=0):
+    """更新标题及来源信息"""
     conn = get_conn()
     conn.execute(
-        "UPDATE conversations SET title=?, updated_at=? WHERE user_id=? AND session_id=? AND deleted_at IS NULL",
-        (title, time.time(), user_id, session_id)
+        "UPDATE conversations SET title=?, updated_at=?, title_source=?, title_locked=? "
+        "WHERE user_id=? AND session_id=? AND deleted_at IS NULL",
+        (title, time.time(), source, locked, user_id, session_id)
     )
     conn.commit()
     conn.close()
+
+
+def lock_title(user_id, session_id):
+    """锁定标题，禁止自动覆盖"""
+    conn = get_conn()
+    conn.execute(
+        "UPDATE conversations SET title_locked=1, title_source='manual' "
+        "WHERE user_id=? AND session_id=? AND deleted_at IS NULL",
+        (user_id, session_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def is_title_locked(user_id, session_id):
+    """检查标题是否被锁定"""
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT title_locked FROM conversations WHERE user_id=? AND session_id=? AND deleted_at IS NULL",
+        (user_id, session_id)
+    ).fetchone()
+    conn.close()
+    if row is None:
+        return False
+    return bool(row[0])
 
 
 def set_pinned(user_id, session_id, pinned):
@@ -115,7 +147,8 @@ def list_conversations(user_id, page=1, limit=50, search="", archived_only=False
 
     if search:
         rows = conn.execute("""
-            SELECT id, session_id, title, pinned, archived, created_at, updated_at, message_count
+            SELECT id, session_id, title, pinned, archived, created_at, updated_at, message_count,
+              COALESCE(title_source, 'auto'), COALESCE(title_locked, 0)
             FROM conversations
             WHERE user_id=? AND deleted_at IS NULL
               AND (title LIKE ? OR session_id LIKE ?)
@@ -124,7 +157,8 @@ def list_conversations(user_id, page=1, limit=50, search="", archived_only=False
         """, (user_id, f"%{search}%", f"%{search}%", limit, offset)).fetchall()
     elif archived_only:
         rows = conn.execute("""
-            SELECT id, session_id, title, pinned, archived, created_at, updated_at, message_count
+            SELECT id, session_id, title, pinned, archived, created_at, updated_at, message_count,
+              COALESCE(title_source, 'auto'), COALESCE(title_locked, 0)
             FROM conversations
             WHERE user_id=? AND deleted_at IS NULL AND archived=1
             ORDER BY pinned DESC, updated_at DESC
@@ -132,7 +166,8 @@ def list_conversations(user_id, page=1, limit=50, search="", archived_only=False
         """, (user_id, limit, offset)).fetchall()
     else:
         rows = conn.execute("""
-            SELECT id, session_id, title, pinned, archived, created_at, updated_at, message_count
+            SELECT id, session_id, title, pinned, archived, created_at, updated_at, message_count,
+              COALESCE(title_source, 'auto'), COALESCE(title_locked, 0)
             FROM conversations
             WHERE user_id=? AND deleted_at IS NULL AND archived=0
             ORDER BY pinned DESC, updated_at DESC
@@ -140,10 +175,8 @@ def list_conversations(user_id, page=1, limit=50, search="", archived_only=False
         """, (user_id, limit, offset)).fetchall()
 
     conn.close()
-    return [
-        dict(zip(['id', 'session_id', 'title', 'pinned', 'archived', 'created_at', 'updated_at', 'message_count'], row))
-        for row in rows
-    ]
+    cols = ['id', 'session_id', 'title', 'pinned', 'archived', 'created_at', 'updated_at', 'message_count', 'title_source', 'title_locked']
+    return [dict(zip(cols, row)) for row in rows]
 
 
 def count_conversations(user_id, search="", archived_only=False):

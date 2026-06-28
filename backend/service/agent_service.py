@@ -6,6 +6,7 @@ from .message_service import save_message, create_streaming_message, complete_me
 from .profile_service import update_profile_from_message
 from .context_service import build_context
 from .summary_service import check_and_generate
+from .title_service import try_auto_title
 from ..repo.source_repo import save_batch
 from ..llm_proxy import invoke_llm, extract_user_info
 
@@ -29,10 +30,21 @@ def chat(user_id, session_id, user_message, on_chunk=None):
     save_message(user_id, session_id, conv_id, "user", user_message)
 
     # 3. 更新考生画像
+    profile = None
     try:
-        update_profile_from_message(conv_id, user_message)
+        profile = update_profile_from_message(conv_id, user_message)
     except Exception as e:
         print(f"[agent] 画像更新失败: {e}")
+
+    # 3.5 尝试自动生成标题
+    if profile:
+        try:
+            from .conversation_service import auto_update_title
+            new_title = try_auto_title(user_message, profile)
+            if new_title:
+                auto_update_title(user_id, session_id, new_title)
+        except Exception as e:
+            print(f"[agent] 标题生成失败: {e}")
 
     # 4. 组装上下文
     sys_prompt = _get_system_prompt()
@@ -110,12 +122,13 @@ def _get_system_prompt():
         "1. 省份志愿政策感知，推荐数量符合各省志愿数\n"
         "2. 冲稳保比例：冲20%稳50%保30%\n"
         "3. 用户数据默认准确\n"
-        "4. 数据引用：真实数据标注来源，无数据说'暂无'，禁止编造\n"
+        "4. 无数据时说'暂无'，禁止编造\n"
         "5. 专业过滤：按用户偏好推荐\n"
         "6. 普通家庭优先技术类\n"
         "7. 天坑专业主动提醒\n"
         "8. '家庭环境普通'是经济条件，不是环境专业\n\n"
-        "【往年排名引用要求】\n"
-        "推荐学校时引用具体分数和位次数据。格式：合肥工业大学 计算机 2024年 595分 31000位\n\n"
+        "【数据使用】\n"
+        "推荐学校时可以带上具体分数和位次数据。格式：合肥工业大学 计算机 2024年 595分 31000位\n"
+        "如果没有数据就不编造，直接推荐学校即可。\n\n"
         "【追问规则】回答末尾检查关键信息是否齐全，不全则追问1-2个。"
     )

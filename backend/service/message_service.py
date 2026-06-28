@@ -63,6 +63,15 @@ def get_recent_for_context(conv_id, limit=12):
     return get_recent_messages(conv_id, limit)
 
 
+def get_last_user_message(user_id, session_id, conv_id):
+    """获取最后一条用户消息"""
+    msgs = get_recent_messages(conv_id, 10)
+    for msg in reversed(msgs):
+        if msg.get('role') == 'user':
+            return msg.get('content', '')
+    return ''
+
+
 def count_messages(user_id, session_id, conv_id):
     """统计会话消息数"""
     return get_message_count(conv_id)

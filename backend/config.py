@@ -21,8 +21,25 @@ TEMPLATE_FILE = FRONTEND_DIR / "index.html"
 USERS_FILE = DATA_DIR / "users.json"
 AI_CONFIG_FILE = DATA_DIR / "ai_config.json"
 
-LISTEN_PORT = 8765
-SESSION_TTL = 86400  # 24h
+# 加载 .env 文件（如果存在）
+_env_file = ROOT_DIR / ".env"
+if _env_file.exists():
+    try:
+        for line in _env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip("\"'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+    except Exception:
+        pass
+
+# 服务配置（环境变量优先，向下兼容）
+LISTEN_PORT = int(os.getenv("XUEFENG_PORT", "8765"))
+SESSION_TTL = int(os.getenv("SESSION_TTL", "86400"))
 
 CHINA_PROVINCES = [
     "北京", "天津", "上海", "重庆", "河北", "山西", "辽宁", "吉林", "黑龙江",

@@ -16,7 +16,7 @@ var loadingMore = false;
 
 var TEMPLATE_TEXT = "我是【省份】考生，选科【物理/历史】，\n今年考了【分数】分，全省排名大概【位次】名。\n家里是【普通工薪/做生意的/爸妈在XX行业】，\n想去【城市或省份】，最讨厌学【数学/背书/都还行】，\n毕业想【找个好工作/考公务员/考研/稳定就行】。\n帮我推荐专业和学校。";
 
-var SYS_PROMPT = "现在是2026年6月，2026年高考已结束，志愿填报正在进行中。你是资深高考志愿规划师，风格直爽接地气。\n\n【格式要求】\n- 不要用###、**等Markdown标记\n- 不要用加粗、斜体等格式符号\n- 用数字序号和破折号做标题，例如：一、冲的学校\n- 纯文本输出即可，网页会自动处理换行\n\n【核心规则】\n1. 省份志愿政策感知（2025年起全部新高考）：\n   专业+院校模式（浙江80/山东96/河北96/重庆96/辽宁112）→推荐至少30-50所\n   院校+专业组模式（江苏40/广东45/湖北45/湖南45/福建40/北京30/天津50/上海24/海南24/河南48/四川45/陕西45/山西45/云南40/贵州45/内蒙古45/安徽45/江西45/黑龙江40/吉林40/广西40/甘肃45/新疆45/宁夏45/青海45/西藏45）→推荐填满80%+\n2. 冲稳保比例：冲20%稳50%保30%，保底至少3个\n3. 用户提供的数据默认准确不质疑\n4. 数据使用铁律：\n   - [真实录取数据]来自考试院官方，逐条引用标注\n   - [联网搜索]标注'据网上公开信息，仅供参考'\n   - 数据库和联网搜索都没数据的学校，说'暂无该校数据'，禁止编造分数位次\n   - 如果DB返回空+联网也没搜到，说'建议查省考试院官网'，不准编造\n5. 专业过滤：用户说了想学什么专业，就只推荐这些或相关方向\n6. 普通家庭优先技术类（计算机/软件/电子/电气/自动化/机械）\n7. 生化环材土木护理等天坑专业主动提醒避开\n8. 注意区分：用户说'家庭环境普通'是指经济条件，不是指环境专业！不要误解为想学环境专业\n\n【回答结构】\n一、确认省份政策（你是XX省考生，XX模式，可填N个志愿...）\n二、冲的学校\n三、稳的学校\n四、保的学校\n五、补充建议\n\n【往年排名引用要求】\n推荐每所学校时，必须在回答中引用参考资料中提供的具体分数和位次数据。格式：\n  合肥工业大学 计算机 2024年 595分 31000位\n不要只写学校名，一定要带上专业、年份、分数、位次！这样用户才能判断是否可报。\n如果参考资料里有数据就引用，没有就说'暂无该校往年数据'\n\n重要:不要只给3-5所学校。DB数据优先。没有真实数据的学校不要瞎编分数位次。\n\n【追问规则】回答末尾检查这些信息是否清楚（不全就问，全就不问）：\n1.省份+文理科 2.分数+位次 3.选科 4.想学什么+排斥什么 5.家里在哪/想去哪 6.父母做什么+年收入 7.家里资源 8.考研还是就业 9.冲985211还是行业强校 10.接受调剂吗 11.学费范围。挑1-2个最关键的追问。";
+var SYS_PROMPT = "现在是2026年6月，2026年高考已结束，志愿填报正在进行中。你是资深高考志愿规划师，风格直爽接地气。\n\n【格式要求】\n- 不要用###、**等Markdown标记\n- 不要用加粗、斜体等格式符号\n- 用数字序号和破折号做标题，例如：一、冲的学校\n- 纯文本输出即可，网页会自动处理换行\n\n【核心规则】\n1. 省份志愿政策感知（2025年起全部新高考）：\n   专业+院校模式（浙江80/山东96/河北96/重庆96/辽宁112）→推荐至少30-50所\n   院校+专业组模式（江苏40/广东45/湖北45/湖南45/福建40/北京30/天津50/上海24/海南24/河南48/四川45/陕西45/山西45/云南40/贵州45/内蒙古45/安徽45/江西45/黑龙江40/吉林40/广西40/甘肃45/新疆45/宁夏45/青海45/西藏45）→推荐填满80%+\n2. 冲稳保比例：冲20%稳50%保30%，保底至少3个\n3. 用户提供的数据默认准确不质疑\n4. 数据使用原则：内部有数据就参考，没有就说'暂无该校数据'，禁止编造分数位次\n5. 专业过滤：用户说了想学什么专业，就只推荐这些或相关方向\n6. 普通家庭优先技术类（计算机/软件/电子/电气/自动化/机械）\n7. 生化环材土木护理等天坑专业主动提醒避开\n8. 注意区分：用户说'家庭环境普通'是指经济条件，不是指环境专业！不要误解为想学环境专业\n\n【回答结构】\n一、确认省份政策（你是XX省考生，XX模式，可填N个志愿...）\n二、冲的学校\n三、稳的学校\n四、保的学校\n五、补充建议\n\n【数据使用】\n推荐学校时可以带上具体分数和位次数据。格式：\n  合肥工业大学 计算机 2024年 595分 31000位\n如果没有数据就不编造，直接推荐学校即可。\n\n重要:不要只给3-5所学校！冲15所，稳15所，保15所，总共45所。DB数据优先。没有真实数据的学校不要瞎编分数位次。每一所学校都要单独列出，不要合并。\n\n【追问规则】回答末尾检查这些信息是否清楚（不全就问，全就不问）：\n1.省份+文理科 2.分数+位次 3.选科 4.想学什么+排斥什么 5.家里在哪/想去哪 6.父母做什么+年收入 7.家里资源 8.考研还是就业 9.冲985211还是行业强校 10.接受调剂吗 11.学费范围。挑1-2个最关键的追问。";
 
 (function () {
   try {
@@ -63,6 +63,20 @@ function pipelineDone(progress) {
 
 /* ---- Helpers ---- */
 function $(id) { return document.getElementById(id); }
+
+function toggleReasoning(idx) {
+  var content = $('reasoning-content-' + idx);
+  var toggle = $('reasoning-toggle-' + idx);
+  if (!content) return;
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    if (toggle) toggle.textContent = '🧠 收起思考过程';
+  } else {
+    content.style.display = 'none';
+    var rLen = content.textContent.length;
+    if (toggle) toggle.textContent = '🧠 思考过程 (' + rLen + '字)';
+  }
+}
 
 function escapeHtml(s) {
   var t = String(s);
@@ -221,6 +235,69 @@ async function removeSession(id) {
   }
 }
 
+/* ---- Rename Session ---- */
+async function startRenameSession(id) {
+  var sess = sessions[id];
+  if (!sess) return;
+  var currentName = sess.name || '新对话';
+  var newName = prompt('输入新标题（2-30字）', currentName);
+  if (newName === null) return; // 取消
+  newName = newName.trim();
+  if (newName.length < 1) {
+    showToast('标题不能为空');
+    return;
+  }
+  if (newName.length > 30) {
+    newName = newName.substring(0, 30);
+  }
+  // 本地更新
+  sess.name = newName;
+  persist();
+  paint();
+  // 同步到后端
+  if (currentUser) {
+    try {
+      await fetch('/api/conversations/' + encodeURIComponent(id) + '/title', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ title: newName })
+      });
+    } catch (e) { console.warn('rename fail:', e.message); }
+  }
+}
+
+/* ---- Regenerate Session Title ---- */
+async function regenerateSessionTitle(id) {
+  if (!currentUser) {
+    showToast('请先登录');
+    return;
+  }
+  try {
+    var r = await fetch('/api/conversations/' + encodeURIComponent(id) + '/regenerate-title', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: '{}'
+    });
+    if (r.ok) {
+      var d = await r.json();
+      if (d.ok && sessions[id]) {
+        sessions[id].name = d.title;
+        persist();
+        paint();
+        showToast('标题已更新: ' + d.title);
+      }
+    } else {
+      var errD = await r.json().catch(function () { return {}; });
+      showToast(errD.error || '重新生成标题失败');
+    }
+  } catch (e) {
+    showToast('网络错误，请稍后重试');
+  }
+}
+
+/* ---- Switch Session ---- */
 async function switchSession(id) {
   activeId = id;
   messageCursor = null;
@@ -246,10 +323,9 @@ async function switchSession(id) {
         sessions[id].messages = d.messages.map(function (m) {
           return { role: m.role, text: m.content };
         });
-        // 更新标题
+        // 更新标题（优先使用服务器返回的标题，不再从首条消息截取）
         if (!sessions[id].name || sessions[id].name === '新对话') {
-          var firstUser = d.messages.find(function (m) { return m.role === 'user'; });
-          if (firstUser) sessions[id].name = firstUser.content.substring(0, 18);
+          // 从服务器会话列表获取标题，保持"新对话"直到后端自动生成
         }
         // 设置分页状态
         messageCursor = d.cursor || null;
@@ -307,7 +383,11 @@ function paint() {
     }
     var activeCls = id === activeId ? ' active' : '';
     html += '<div class="conv-item' + activeCls + '" data-id="' + id + '">'
-      + escapeHtml(s.name || preview)
+      + '<span class="conv-title">' + escapeHtml(s.name || preview) + '</span>'
+      + '<span class="conv-actions" data-actions="' + id + '">'
+      + '<span class="conv-rename" data-rename="' + id + '" title="重命名">✎</span>'
+      + '<span class="conv-refresh-title" data-refresh-title="' + id + '" title="重新生成标题">↻</span>'
+      + '</span>'
       + '<span class="dismiss" data-remove="' + id + '">×</span></div>';
   });
   var cl = $('conv-list');
@@ -335,7 +415,17 @@ function paint() {
     var who = m.role === 'user' ? '你' : '咨询顾问';
     var cls = m.role === 'user' ? 'user' : 'bot';
     var txt = m.role === 'user' ? m.text : stripMarkdown(m.text);
-    out += '<div class="bubble ' + cls + '"><div class="label">' + who + '</div>' + escapeHtml(txt) + '</div>';
+    var reasoningHtml = '';
+    if (m.reasoning && m.reasoning.length > 0) {
+      var rLen = stripMarkdown(m.reasoning).length;
+      var rIdx = i;
+      reasoningHtml = '<div class="reasoning-section" onclick="toggleReasoning(' + rIdx + ')" style="cursor:pointer;color:#94a3b8;font-size:12px;margin-bottom:8px;padding:6px 0;border-top:1px solid #e2e8f0;">'
+        + '<span style="font-size:13px;" id="reasoning-toggle-' + rIdx + '">🧠 思考过程 (' + rLen + '字)</span>'
+        + '<div class="reasoning-content" id="reasoning-content-' + rIdx + '" style="display:none;color:#64748b;font-size:13px;white-space:pre-wrap;line-height:1.6;max-height:300px;overflow-y:auto;margin-top:6px;">'
+        + escapeHtml(stripMarkdown(m.reasoning))
+        + '</div></div>';
+    }
+    out += '<div class="bubble ' + cls + '"><div class="label">' + who + '</div>' + reasoningHtml + escapeHtml(txt) + '</div>';
   }
   cc.innerHTML = out;
   scrollToBottom(false);
@@ -484,17 +574,22 @@ async function webSearch(q, n) {
       if (d.results && d.results.length) return d.results;
     }
   } catch (e) { console.warn('Tavily fail:', e.message); }
-  try {
-    var r2 = await fetch('/search?q=' + encodeURIComponent(q), { credentials: 'same-origin' });
-    if (r2.ok) {
-      var d2 = await r2.json();
-      if (d2.results && d2.results.length) {
-        d2.results.unshift('[百度搜索] Tavily无结果，百度兜底:');
-        return d2.results;
-      }
-    }
-  } catch (e) {}
+  // 不阻塞兜底，Tavily 失败直接返回空
   return [];
+}
+
+/* ---- Should Use Web Search ---- */
+function shouldUseWebSearch(text) {
+  var webKw = ['最新', '今年', '2025', '2026', '刚发布', '官网', '投档线',
+               '招生章程', '政策变化', '查一下', '联网查', '最新录取',
+               '今年录取', '今年投档', '今年招生', '今年政策'];
+  return webKw.some(function (kw) { return text.indexOf(kw) >= 0; });
+}
+
+/* ---- Single School Query ---- */
+function isSingleSchoolQuery(text, info) {
+  // 用户明确询问某一所具体学校
+  return info.schools && info.schools.length > 0 && info.schools.length <= 2;
 }
 
 /* ---- KB Search ---- */
@@ -546,7 +641,9 @@ async function fetchContext(text) {
     else if (text.indexOf('理科') >= 0) info.subject = '理科';
   }
 
+  // 信息不全（缺省份或缺分数和位次），跳过所有查询直接回复
   var skip = !info.province || (!info.rank && !info.score);
+  if (skip) return '';
 
   pipelineStep(2);
   var dbText = '';
@@ -601,36 +698,7 @@ async function fetchContext(text) {
   var webText = '';
   var kbText = '';
   try {
-    var queries = [];
-    var dbSchools = [];
-    if (rawJ && rawJ.chong) for (var i = 0; i < Math.min(5, rawJ.chong.length); i++) dbSchools.push(rawJ.chong[i].school);
-    if (rawJ && rawJ.wen) for (var i = 0; i < Math.min(5, rawJ.wen.length); i++) dbSchools.push(rawJ.wen[i].school);
-    if (rawJ && rawJ.bao) for (var i = 0; i < Math.min(5, rawJ.bao.length); i++) dbSchools.push(rawJ.bao[i].school);
-    for (var i = 0; i < dbSchools.length; i++) {
-      queries.push(dbSchools[i] + ' ' + info.province + ' 2025录取分数线 王牌专业');
-    }
-    if (info.province && info.rank > 0) {
-      if (info.majors && info.majors.length) {
-        queries.push(info.province + ' ' + info.rank + '位次 ' + info.majors[0] + '专业 2025 能报哪些大学');
-        queries.push(info.province + ' 2025年高考 ' + info.score + '分 ' + info.rank + '名 能上什么大学');
-      } else {
-        queries.push(info.province + ' ' + info.rank + '位次 2025 能报哪些大学');
-        queries.push(info.province + ' 2025年高考 ' + info.score + '分 ' + info.rank + '名 志愿填报');
-      }
-    }
-    if (info.majors && info.majors.length) {
-      queries.push(info.majors[0] + '专业 就业前景 薪资 行业趋势');
-    }
-    if (info.keywords && info.keywords.length) {
-      for (var i = 0; i < Math.min(3, info.keywords.length); i++) queries.push(info.keywords[i]);
-    }
-    if (skip) {
-      queries.push(text + ' 高考志愿 推荐学校');
-      if (info.majors && info.majors.length) queries.push(info.majors.join(' ') + '专业 就业前景');
-    }
-    var seenQ = {}; var finalQ = [];
-    for (var i = 0; i < queries.length; i++) { if (!seenQ[queries[i]]) { seenQ[queries[i]] = 1; finalQ.push(queries[i]); } }
-
+    // KB 搜索（始终执行）
     var kbQuery = (info.province || '') + ' ' + (info.majors && info.majors[0] || '') + ' ' + (info.schools && info.schools[0] || '');
     var kbResults = await kbSearch(kbQuery);
     if (kbResults.length) {
@@ -638,26 +706,62 @@ async function fetchContext(text) {
       kbResults.slice(0, 10).forEach(function (k) { kbText += k + '\n\n'; });
     }
 
-    var allWeb = [];
-    for (var b = 0; b < finalQ.length; b += 5) {
-      var batch = finalQ.slice(b, b + 5);
-      var tasks = [];
-      for (var i = 0; i < batch.length; i++) tasks.push(webSearch(batch[i], 3));
-      try {
-        var results = await Promise.all(tasks);
-        for (var i = 0; i < results.length; i++) allWeb = allWeb.concat(results[i]);
-      } catch (e) {}
+    // 联网搜索 — 仅当用户明确需要时
+    var webSearchNeeded = shouldUseWebSearch(text);
+    if (!webSearchNeeded) {
+      // 普通问题不联网
+    } else {
+      // 生成少量全局 query（最多 5 条）
+      var queries = [];
+      // 单校查询
+      if (isSingleSchoolQuery(text, info) && info.schools && info.schools.length > 0) {
+        queries.push(info.schools[0] + ' ' + info.province + ' 录取分数线 投档线');
+        queries.push(info.schools[0] + ' 2025年招生计划');
+      } else {
+        // 全局查询
+        if (info.province && info.rank > 0) {
+          if (info.majors && info.majors.length) {
+            queries.push(info.province + ' ' + info.rank + '位次 ' + info.majors[0] + '专业 志愿填报');
+          } else {
+            queries.push(info.province + ' ' + info.rank + '位次 志愿填报');
+          }
+          queries.push(info.province + ' ' + info.score + '分 能上什么大学');
+        }
+        // 专业前景
+        if (info.majors && info.majors.length) {
+          queries.push(info.majors[0] + '专业 就业前景 薪资');
+        }
+      }
+      // 去重并限制数量
+      var seenQ = {}; var finalQ = [];
+      for (var i = 0; i < queries.length; i++) {
+        if (!seenQ[queries[i]]) { seenQ[queries[i]] = 1; finalQ.push(queries[i]); }
+        if (finalQ.length >= 5) break;
+      }
+      // 并行执行
+      var tasks = finalQ.map(function (q) { return webSearch(q, 3); });
+      var allWebResults = await Promise.all(tasks);
+      var allWeb = [];
+      for (var i = 0; i < allWebResults.length; i++) {
+        allWeb = allWeb.concat(allWebResults[i]);
+      }
+      // 去重
+      var seen = {}; var unique = [];
+      for (var i = 0; i < allWeb.length; i++) {
+        var k = allWeb[i].substring(0, 50);
+        if (!seen[k]) { seen[k] = 1; unique.push(allWeb[i]); }
+      }
+      if (unique.length) {
+        webText = '【联网搜索·仅供参考】\n';
+        unique.slice(0, 20).forEach(function (w) { webText += '- ' + w.substring(0, 400) + '\n'; });
+      } else {
+        webText = '【联网搜索无结果】已基于本地数据库和知识仓库回答。\n';
+      }
     }
-    var seen = {}; var unique = [];
-    for (var i = 0; i < allWeb.length; i++) {
-      var k = allWeb[i].substring(0, 50);
-      if (!seen[k]) { seen[k] = 1; unique.push(allWeb[i]); }
-    }
-    if (unique.length) {
-      webText = '【联网搜索·仅供参考】\n';
-      unique.slice(0, 20).forEach(function (w) { webText += '- ' + w.substring(0, 400) + '\n'; });
-    }
-  } catch (e) { console.warn('Search fail:', e.message); }
+  } catch (e) {
+    console.warn('Search fail:', e.message);
+    webText = '';
+  }
 
   var result = '[DEBUG] province=' + info.province + ' rank=' + info.rank + ' score=' + info.score + ' majors=' + (info.majors || []).join(',') + '\n';
   if (dbText) result += dbText + '\n';
@@ -678,11 +782,18 @@ async function submit() {
   $('submitBtn').disabled = true;
   userScrolledUp = false;
 
+  // 中止旧的流式请求，避免旧流污染新会话
+  if (window.__currentStreamCtrl) {
+    try { window.__currentStreamCtrl.abort(); } catch (e) {}
+    delete window.__currentStreamCtrl;
+  }
+
   try {
     if (!activeId || !sessions[activeId]) createSession();
     var sess = sessions[activeId];
+    var currentConvId = activeId;
     sess.messages.push({ role: 'user', text: text });
-    if (sess.name === '新对话') sess.name = text.substring(0, 18);
+    // 暂不自动命名，交由后端标题生成服务处理
     paint();
     persist();
 
@@ -698,14 +809,12 @@ async function submit() {
 
       pipelineStep(1);
       var context = await fetchContext(text);
-      pipelineDone();
 
       var msgs = [{ role: 'system', content: SYS_PROMPT }];
-      if (context && context.indexOf('均无结果') < 0) {
+      if (context) {
         msgs.push({ role: 'system', content: '【参考资料，请基于这些数据给出建议】\n' + context });
-      } else {
-        msgs.push({ role: 'system', content: '【注意】数据源未找到具体数据。建议查省教育考试院官网，禁止编造分数位次。' });
       }
+      pipelineDone();
 
       var start = Math.max(0, sess.messages.length - 25);
       for (var i = start; i < sess.messages.length; i++) {
@@ -715,21 +824,70 @@ async function submit() {
       pipelineStep(4, '正在生成...');
 
       // Delegate SSE streaming to stream.js
-      var reply = await streamChat(cc, msgs, sess, context);
+      var result = await streamChat(cc, msgs, sess, context, currentConvId);
+      var reply = typeof result === 'string' ? result : (result.reply || '');
+      var reasoning = typeof result === 'object' ? (result.reasoning || '') : '';
 
-      if (context && context.indexOf('均无结果') < 0) reply = '【参考资料】\n' + context + '\n---\n' + reply;
-      else reply = '【查询结果】 ' + context + '\n---\n' + reply;
-      sess.messages.push({ role: 'assistant', text: reply });
-      var charCount = reply ? reply.length : 0;
-      pipelineDone('回答完成 ' + charCount + ' 字');
+      // 处理用户主动取消
+      if (reply && reply.substring(0, 11) === '__ABORTED__') {
+        var abortedText = reply.substring(11);
+        sess.messages.push({ role: 'assistant', text: abortedText });
+        var statusEl = $('botStatus');
+        if (statusEl) statusEl.textContent = '已停止生成';
+        pipelineDone('已停止生成');
+      } else {
+        // 正常完成
+        var msgObj = { role: 'assistant', text: reply };
+        if (reasoning) msgObj.reasoning = reasoning;
+        sess.messages.push(msgObj);
+        var charCount = reply ? reply.length : 0;
+        pipelineDone('回答完成 ' + charCount + ' 字');
+      }
+
+      // 同步标题从后端（后端可能已自动生成标题）
+      try {
+        var titleResp = await fetch('/api/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ action: 'list' })
+        });
+        if (titleResp.ok) {
+          var titleData = await titleResp.json();
+          if (titleData.conversations) {
+            for (var ti = 0; ti < titleData.conversations.length; ti++) {
+              var tc = titleData.conversations[ti];
+              if (tc.session_id === activeId && sessions[activeId]) {
+                var serverTitle = tc.title || '';
+                // 如果服务器有标题且本地是"新对话"，更新本地
+                if (serverTitle && serverTitle !== '' && sessions[activeId].name === '新对话') {
+                  sessions[activeId].name = serverTitle;
+                }
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) { /* 标题同步失败不影响正常聊天 */ }
     }
   } catch (e) {
     console.error('[submit] error:', e);
+    var errorMsg = e.message || '未知错误';
+    var displayMsg = '';
+    if (errorMsg === '__ABORTED__') {
+      displayMsg = '已停止生成';
+    } else if (errorMsg.indexOf('连接中断') >= 0) {
+      displayMsg = '连接中断，请重试';
+    } else {
+      displayMsg = '生成失败，请重试';
+    }
     try {
       if (activeId && sessions[activeId]) {
-        sessions[activeId].messages.push({ role: 'assistant', text: '出错：' + e.message + '\n请稍后重试' });
+        sessions[activeId].messages.push({ role: 'assistant', text: displayMsg });
       }
-      pipelineDone('出错');
+      var statusEl = $('botStatus');
+      if (statusEl) statusEl.textContent = displayMsg;
+      pipelineDone(displayMsg);
     } catch (ex) {}
   }
 
@@ -809,6 +967,11 @@ function bindEvents() {
 
   on('conv-list', 'click', function (e) {
     var t = e.target;
+    // 重命名按钮
+    if (t.dataset.rename) { e.stopPropagation(); e.preventDefault(); startRenameSession(t.dataset.rename); return; }
+    // 重新生成标题按钮
+    if (t.dataset.refreshTitle) { e.stopPropagation(); e.preventDefault(); regenerateSessionTitle(t.dataset.refreshTitle); return; }
+    // 删除按钮
     if (t.dataset.remove) { e.stopPropagation(); removeSession(t.dataset.remove); return; }
     var item = t.closest('.conv-item');
     if (item) switchSession(item.dataset.id);
@@ -852,6 +1015,8 @@ window.closeSidebar = closeSidebar;
 window.createSession = createSession;
 window.removeSession = removeSession;
 window.switchSession = switchSession;
+window.startRenameSession = startRenameSession;
+window.regenerateSessionTitle = regenerateSessionTitle;
 window.paint = paint;
 window.showToast = showToast;
 window.scrollToBottom = scrollToBottom;

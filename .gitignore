@@ -40,5 +40,8 @@ xuefeng-agent-master/
 admission_clean.db
 server.log
 
+# Environment config (secrets)
+.env
+
 # Claude memory/plans
 .claude/

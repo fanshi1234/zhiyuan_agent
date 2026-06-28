@@ -2,7 +2,10 @@
 """志愿Agent — HTTP 请求处理器：路由、认证、CORS、SSE 流式"""
 import json
 import re
+import threading
+import traceback
 import urllib.parse
+import uuid as uuid_mod
 from http.server import BaseHTTPRequestHandler
 
 from .config import TEMPLATE_FILE, LISTEN_PORT
@@ -14,15 +17,14 @@ from .web_search import web_search, tavily_query
 from .llm_proxy import invoke_llm, extract_user_info
 from .models import get_models, get_current_model_idx, LLM_ENDPOINT, LLM_TOKEN, LLM_ENGINE, TAVILY_TOKEN
 from .conversations import (
-    init_conversations_db, save_conversation, save_message, load_conversations,
-    load_messages, delete_conversation, list_user_conversations, search_messages,
-    create_conversation,
+    init_conversations_db,
 )
 
 # 新 service 层
 from .service.conversation_service import (
     create_conversation as cs_create,
     rename_conversation as cs_rename,
+    regenerate_title as cs_regenerate_title,
     pin_conversation as cs_pin,
     archive_conversation as cs_archive,
     delete_conversation as cs_delete,
@@ -51,6 +53,7 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json;charset=utf-8")
         self._cors_headers()
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
 
@@ -65,6 +68,7 @@ class AppHandler(BaseHTTPRequestHandler):
         self._cors_headers()
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE")
         self.send_header("Access-Control-Allow-Headers", "*")
+        self.send_header("Connection", "close")
         self.end_headers()
 
     # ---- OPTIONS ----
@@ -88,6 +92,12 @@ class AppHandler(BaseHTTPRequestHandler):
             "/api/conversations/delete": lambda: self._route_delete_conversation(body),
             "/api/messages/load": lambda: self._route_load_messages(body),
         }
+        # 检查新路由: regenerate-title
+        regen_match = re.match(r'^/api/conversations/([^/]+)/regenerate-title$', path)
+        if regen_match:
+            if not require_auth(self):
+                return self._json_response({"error": "未登录"}, 401)
+            return self._route_post_regenerate_title(regen_match.group(1), body)
         handler = route_map.get(path)
         if handler:
             if path in auth_routes:
@@ -120,6 +130,9 @@ class AppHandler(BaseHTTPRequestHandler):
         m = re.match(r'^/api/conversations/([^/]+)/archive$', path)
         if m:
             return self._route_patch_conversation_archive(m.group(1), raw_body)
+        m = re.match(r'^/api/conversations/([^/]+)/title$', path)
+        if m:
+            return self._route_patch_conversation_title(m.group(1), raw_body)
         self._json_response({"error": "路径不存在"}, 404)
 
     def do_DELETE(self):
@@ -146,6 +159,7 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type + ";charset=utf-8")
         self._cors_headers()
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Connection", "close")
         self.end_headers()
         try:
             with open(fp, "rb") as fh:
@@ -216,6 +230,7 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0, no-transform")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
+        self.send_header("Connection", "close")
         self.end_headers()
         try:
             with open(TEMPLATE_FILE, "r", encoding="utf-8") as fh:
@@ -237,6 +252,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json;charset=utf-8")
                 self.send_header("Set-Cookie", f"sid={sid}; Path=/; Max-Age={86400}; HttpOnly")
+                self.send_header("Connection", "close")
                 self._cors_headers()
                 self.end_headers()
                 self.wfile.write(json.dumps(
@@ -286,6 +302,14 @@ class AppHandler(BaseHTTPRequestHandler):
                 ms_save(username, session_id, conv_id, "user", last_user)
             except Exception:
                 pass
+            # 异步提取画像 — 不阻塞响应
+            def _async_profile(cid, msg):
+                try:
+                    from .service.profile_service import update_profile_from_message
+                    update_profile_from_message(cid, msg)
+                except Exception:
+                    pass
+            threading.Thread(target=_async_profile, args=(conv_id, last_user), daemon=True).start()
 
         if streaming:
             _handle_streaming_chat(self, msgs, mdl, temp, mx_tok, username, session_id, conv_id)
@@ -401,6 +425,41 @@ class AppHandler(BaseHTTPRequestHandler):
             self._json_response(result)
         except ValueError as e:
             self._json_response({"error": str(e)}, 404)
+        except Exception as exc:
+            self._json_response({"error": str(exc)}, 500)
+
+    def _route_patch_conversation_title(self, session_id, body):
+        """PATCH /api/conversations/:session_id/title — 手动重命名（锁定标题）"""
+        try:
+            username = require_auth(self) or ""
+            data = json.loads(body) if body else {}
+            title = data.get("title", "")
+            result = cs_rename(username, session_id, title)
+            self._json_response(result)
+        except ValueError as e:
+            self._json_response({"error": str(e)}, 400)
+        except Exception as exc:
+            self._json_response({"error": str(exc)}, 500)
+
+    def _route_post_regenerate_title(self, session_id, body):
+        """POST /api/conversations/:session_id/regenerate-title — 重新生成标题"""
+        try:
+            username = require_auth(self) or ""
+            conv_id = get_conv_id(username, session_id)
+            if conv_id is None:
+                return self._json_response({"error": "会话不存在"}, 404)
+            # 获取当前画像
+            profile = ps_get(conv_id)
+            # 获取最近一条用户消息
+            from .service.message_service import get_last_user_message
+            last_msg = get_last_user_message(username, session_id, conv_id) or ""
+            # 生成标题
+            from .service.title_service import try_auto_title
+            new_title = try_auto_title(last_msg, profile)
+            if not new_title:
+                return self._json_response({"error": "信息不足，无法生成标题"}, 400)
+            result = cs_regenerate_title(username, session_id, new_title)
+            self._json_response(result)
         except Exception as exc:
             self._json_response({"error": str(exc)}, 500)
     
@@ -543,47 +602,62 @@ class AppHandler(BaseHTTPRequestHandler):
     # ============================================================
     
     def _route_conversations(self, body):
+        """旧兼容路由 — 统一转发到新 service 层"""
         try:
             username = require_auth(self) or ""
             data = json.loads(body) if body else {}
             action = data.get("action")
-    
-            # 新格式：没有 action 字段但有 session_id → 创建会话
+
             if action is None and data.get("session_id"):
                 return self._route_create_conversation(body)
             if action is None:
                 action = "list"
-    
+
             if action == "list":
-                convs = list_user_conversations(username)
-                return self._json_response({"conversations": convs})
+                # 转发到新 service 层
+                result = cs_list(username, 1, 200)
+                return self._json_response(result)
             elif action == "save":
                 session_id = data.get("session_id", "")
                 title = data.get("title", "")
-                save_conversation(username, session_id, title)
-                return self._json_response({"ok": True})
+                # 转发到新 service 层创建/更新
+                existing = get_conv_id(username, session_id)
+                if existing:
+                    return self._json_response(cs_rename(username, session_id, title))
+                else:
+                    sid, cid = cs_create(username, title, session_id=session_id)
+                    return self._json_response({"ok": True})
             else:
                 return self._json_response({"error": "未知操作"})
         except Exception as exc:
             self._json_response({"error": str(exc)}, 500)
-    
+
     def _route_delete_conversation(self, body):
+        """旧兼容路由 — 改为软删除"""
         try:
             username = require_auth(self) or ""
             data = json.loads(body) if body else {}
             session_id = data.get("session_id", "")
-            delete_conversation(username, session_id)
-            self._json_response({"ok": True})
+            # 转发到新 service 层（软删除）
+            result = cs_delete(username, session_id)
+            self._json_response(result)
+        except ValueError as e:
+            self._json_response({"error": str(e)}, 404)
         except Exception as exc:
             self._json_response({"error": str(exc)}, 500)
-    
+
     def _route_load_messages(self, body):
+        """旧兼容路由 — 分页加载（默认最近30条）"""
         try:
             data = json.loads(body) if body else {}
             session_id = data.get("session_id", "")
             username = require_auth(self) or ""
-            msgs = load_messages(username, session_id)
-            self._json_response({"messages": msgs})
+            conv_id = get_conv_id(username, session_id)
+            if conv_id is None:
+                return self._json_response({"messages": []})
+            # 转发到新 service 层（分页加载）
+            result = ms_load(username, session_id, conv_id, None, 30)
+            self._json_response({"messages": result["messages"]})
         except Exception as exc:
             self._json_response({"error": str(exc)}, 500)
     
@@ -592,47 +666,130 @@ class AppHandler(BaseHTTPRequestHandler):
         if any(ep in msg for ep in ["/recommend", "/query", "/health", "/search", "/api/", "/login", "/kb_search"]):
             print(f"[HTTP] {msg}")
 
+def _sse_event(payload):
+    """将字典序列化为 SSE 事件"""
+    return ("data: " + json.dumps(payload, ensure_ascii=False) + "\n\n").encode("utf-8")
+
+
 def _handle_streaming_chat(handler, msgs, mdl, temp, mx_tok, username, session_id, conv_id):
-    """在独立函数中处理流式响应"""
+    """流式响应 — 统一 JSON SSE 协议"""
+    req_id = uuid_mod.uuid4().hex[:8]
     handler.send_response(200)
-    handler.send_header("Content-Type", "text/event-stream")
+    handler.send_header("Content-Type", "text/event-stream; charset=utf-8")
     handler.send_header("Cache-Control", "no-cache")
-    handler.send_header("Connection", "close")
+    handler.send_header("Connection", "keep-alive")
     handler.send_header("X-Accel-Buffering", "no")
     handler._cors_headers()
     handler.end_headers()
 
     stream = StreamingSession(username, session_id, conv_id)
-    stream.start()
+    msg_id = stream.start()
+
+    print(f"[{req_id}] stream_start conv={conv_id} msg={msg_id}")
+
+    # 发送 start 事件
+    try:
+        handler.wfile.write(_sse_event({
+            "type": "start",
+            "conversation_id": conv_id,
+            "message_id": str(msg_id),
+        }))
+        handler.wfile.flush()
+    except Exception:
+        print(f"[{req_id}] client disconnected on start")
+        return
 
     reply_parts = []
-    def write_chunk(text):
-        reply_parts.append(text)
-        try:
-            sse = "data: " + json.dumps(
-                {"choices": [{"delta": {"content": text}}]}
-            ) + "\n\n"
-            handler.wfile.write(sse.encode("utf-8"))
-            handler.wfile.flush()
-        except Exception:
-            pass
-        try:
-            stream.append(text)
-        except Exception:
-            pass
+    reasoning_parts = []
+    chunk_count = 0
+    error_occurred = None
+
+    def write_chunk(text, is_reasoning=False):
+        nonlocal chunk_count
+        chunk_count += 1
+        if is_reasoning:
+            reasoning_parts.append(text)
+            try:
+                handler.wfile.write(_sse_event({
+                    "type": "reasoning",
+                    "conversation_id": conv_id,
+                    "message_id": str(msg_id),
+                    "content": text,
+                }))
+                handler.wfile.flush()
+            except Exception:
+                raise
+        else:
+            reply_parts.append(text)
+            try:
+                handler.wfile.write(_sse_event({
+                    "type": "chunk",
+                    "conversation_id": conv_id,
+                    "message_id": str(msg_id),
+                    "content": text,
+                }))
+                handler.wfile.flush()
+            except Exception:
+                raise
+            try:
+                stream.append(text)
+            except Exception:
+                pass
 
     try:
         invoke_llm(msgs, mdl, temp, mx_tok, on_chunk=write_chunk)
+        total_len = sum(len(c) for c in reply_parts)
+        reasoning_len = sum(len(c) for c in reasoning_parts)
         stream.complete()
+        if chunk_count == 0:
+            print(f"[{req_id}] WARN: LLM returned 0 chunks (no content generated)")
+        print(f"[{req_id}] done conv={conv_id} msg={msg_id} chunks={chunk_count} content_chars={total_len} reasoning_chars={reasoning_len}")
     except Exception as e:
-        stream.fail(str(e))
+        total_len = sum(len(c) for c in reply_parts)
+        error_occurred = str(e)
+        stream.fail(error_occurred)
+        print(f"[{req_id}] error conv={conv_id} msg={msg_id} chars_so_far={total_len}: {e}")
+        print("".join(traceback.format_stack()))
 
+    # 发送结束事件
     try:
-        handler.wfile.write(b"data: [DONE]\n\n")
+        if error_occurred:
+            handler.wfile.write(_sse_event({
+                "type": "error",
+                "conversation_id": conv_id,
+                "message_id": str(msg_id),
+                "message": error_occurred,
+            }))
+        else:
+            handler.wfile.write(_sse_event({
+                "type": "done",
+                "conversation_id": conv_id,
+                "message_id": str(msg_id),
+                "reasoning_length": sum(len(c) for c in reasoning_parts),
+            }))
         handler.wfile.flush()
     except Exception:
         pass
 
-    # 标记关闭连接，避免 BaseHTTPRequestHandler 保持连接导致 ERR_CONNECTION_RESET
     handler.close_connection = True
+
+    # 标题生成放到后台线程
+    def _async_title():
+        try:
+            from .service.profile_service import get_profile as ps_get
+            from .service.title_service import try_auto_title
+            from .service.conversation_service import auto_update_title
+            profile = ps_get(conv_id)
+            if profile:
+                last_user = ""
+                for m in reversed(msgs):
+                    if m.get("role") == "user":
+                        last_user = m.get("content", "")
+                        break
+                new_title = try_auto_title(last_user, profile)
+                if new_title:
+                    auto_update_title(username, session_id, new_title)
+        except Exception:
+            pass
+    threading.Thread(target=_async_title, daemon=True).start()
 

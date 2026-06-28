@@ -1,11 +1,52 @@
 #!/usr/bin/env python3
-"""志愿Agent — 联网搜索：Tavily AI Search + 百度网页解析兜底"""
+"""志愿Agent — 联网搜索：Tavily AI Search（带缓存，超时 5s）"""
 import json
 import re
+import time
 import urllib.request
 import urllib.parse
 
 from .models import get_tavily_key
+
+# 搜索结果缓存: { normalized_query: {"results": [...], "ts": timestamp } }
+_search_cache = {}
+CACHE_TTL_WEB = 3600       # 普通搜索缓存 1 小时
+CACHE_TTL_POLICY = 3600    # 政策/投档线搜索缓存 1 小时
+MAX_CACHE_SIZE = 200
+
+
+def _cache_key(query):
+    """缓存 key: 小写 + 去空格"""
+    return query.strip().lower()
+
+
+def _is_policy_query(query):
+    """是否为政策/投档线类查询"""
+    policy_kw = ['投档线', '招生章程', '政策', '招生计划', '分数线', '最新']
+    return any(kw in query for kw in policy_kw)
+
+
+def _cache_get(query):
+    """从缓存获取搜索结果"""
+    key = _cache_key(query)
+    entry = _search_cache.get(key)
+    if not entry:
+        return None
+    ttl = CACHE_TTL_POLICY if _is_policy_query(query) else CACHE_TTL_WEB
+    if time.time() - entry["ts"] > ttl:
+        del _search_cache[key]
+        return None
+    return entry["results"]
+
+
+def _cache_put(query, results):
+    """缓存搜索结果"""
+    key = _cache_key(query)
+    if len(_search_cache) >= MAX_CACHE_SIZE:
+        # 淘汰最旧的
+        oldest_key = min(_search_cache, key=lambda k: _search_cache[k]["ts"])
+        del _search_cache[oldest_key]
+    _search_cache[key] = {"results": results, "ts": time.time()}
 
 
 def _repair_chinese_encoding(text):
@@ -22,11 +63,10 @@ def _repair_chinese_encoding(text):
 
 
 def tavily_query(search_text, result_count=5):
-    """调用 Tavily AI Search API"""
+    """调用 Tavily AI Search API（超时 5s，失败直接返回 None）"""
     output = []
     key = get_tavily_key()
     if not key:
-        print("[Tavily] 未配置 API key")
         return None
     try:
         payload = json.dumps({
@@ -47,7 +87,7 @@ def tavily_query(search_text, result_count=5):
                 "Authorization": "Bearer " + key,
             },
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:
             raw_bytes = resp.read()
             try:
                 data = json.loads(raw_bytes.decode("utf-8"))
@@ -60,18 +100,46 @@ def tavily_query(search_text, result_count=5):
                 continue
             title = _repair_chinese_encoding(item.get("title", ""))
             content = _repair_chinese_encoding(item.get("content", ""))[:400]
-            raw_content = _repair_chinese_encoding(item.get("raw_content", ""))[:300]
             if content:
                 output.append(f"{title}: {content}")
-            elif raw_content:
-                output.append(f"{title}: {raw_content}")
     except Exception as exc:
         print(f"[Tavily] 调用失败: {exc}")
     return output or None
 
 
+def web_search(search_text, result_count=5):
+    """统一搜索入口: 缓存 → Tavily（5s 超时），不阻塞兜底"""
+    if not search_text:
+        return []
+    # 命中缓存
+    cached = _cache_get(search_text)
+    if cached:
+        return cached
+    # Tavily（5s 超时，失败直接返回空）
+    tav_res = tavily_query(search_text, result_count)
+    if tav_res:
+        _cache_put(search_text, tav_res)
+        return tav_res
+    return []
+
+
+def web_search_with_fallback(search_text, result_count=5):
+    """带百度兜底的搜索（仅用于用户明确要求联网搜索的场景）"""
+    if not search_text:
+        return []
+    cached = _cache_get(search_text)
+    if cached:
+        return cached
+    tav_res = tavily_query(search_text, result_count)
+    if tav_res:
+        _cache_put(search_text, tav_res)
+        return tav_res
+    # Tavily 失败才用百度
+    return baidu_fallback(search_text, result_count)
+
+
 def baidu_fallback(search_text, result_count=5):
-    """百度网页搜索解析（Tavily 不可用时的兜底方案）"""
+    """百度网页搜索解析（仅作为兜底方案）"""
     output = []
     try:
         url = "https://www.baidu.com/s?wd=" + urllib.parse.quote(search_text)
@@ -87,7 +155,7 @@ def baidu_fallback(search_text, result_count=5):
                 "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
             },
         )
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:
             page = resp.read().decode("utf-8", errors="ignore")
         patterns = [
             r'<span class="content-right_[^"]*">(.*?)</span>',
@@ -104,14 +172,4 @@ def baidu_fallback(search_text, result_count=5):
                 break
     except Exception as exc:
         print(f"[Baidu] 搜索失败: {exc}")
-    return output or ["未找到相关内容"]
-
-
-def web_search(search_text, result_count=5):
-    """统一搜索入口：优先 Tavily，失败则用百度"""
-    if not search_text:
-        return []
-    tav_res = tavily_query(search_text, result_count)
-    if tav_res:
-        return tav_res
-    return baidu_fallback(search_text, result_count)
+    return output or []

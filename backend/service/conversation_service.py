@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """志愿Agent — 会话管理服务"""
 from ..repo.conversation_repo import (
-    create, get_by_user_session, update_title, set_pinned, set_archived,
-    soft_delete, list_conversations, count_conversations, update_timestamp,
-    increment_message_count, exists, get_conv_id, ensure_exists
+    create, get_by_user_session, update_title, update_title_with_source,
+    set_pinned, set_archived, soft_delete, list_conversations, count_conversations,
+    update_timestamp, increment_message_count, exists, get_conv_id, ensure_exists,
+    lock_title, is_title_locked,
 )
 from ..repo.db import get_conn
 
@@ -14,11 +15,40 @@ def create_conversation(user_id, title="", session_id=None):
 
 
 def rename_conversation(user_id, session_id, title):
-    """重命名会话"""
+    """重命名会话（手动锁定）"""
     conv = get_by_user_session(user_id, session_id)
     if conv is None:
         raise ValueError(f"会话 {session_id} 不存在")
-    update_title(user_id, session_id, title)
+    if not title or not title.strip():
+        raise ValueError("标题不能为空")
+    title = title.strip()
+    if len(title) > 30:
+        title = title[:30]
+    update_title_with_source(user_id, session_id, title, 'manual', 1)
+    return {"ok": True, "title": title}
+
+
+def auto_update_title(user_id, session_id, title):
+    """自动更新标题（仅当未锁定时）"""
+    if is_title_locked(user_id, session_id):
+        return {"ok": False, "locked": True}
+    conv = get_by_user_session(user_id, session_id)
+    if conv is None:
+        return {"ok": False}
+    # 如果当前标题就是"新对话"，或标题是空的，才自动更新
+    current_title = conv.get('title', '')
+    if current_title and current_title != '新对话' and current_title != '':
+        return {"ok": False, "reason": "已有标题"}
+    update_title_with_source(user_id, session_id, title, 'auto', 0)
+    return {"ok": True, "title": title}
+
+
+def regenerate_title(user_id, session_id, title):
+    """重新生成标题（用户主动触发，不锁定）"""
+    conv = get_by_user_session(user_id, session_id)
+    if conv is None:
+        raise ValueError(f"会话 {session_id} 不存在")
+    update_title_with_source(user_id, session_id, title, 'regenerated', 0)
     return {"ok": True, "title": title}
 
 

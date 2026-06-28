@@ -164,6 +164,8 @@ def _migrate_data(conn):
             ('archived', 'ALTER TABLE conversations ADD COLUMN archived INTEGER DEFAULT 0'),
             ('deleted_at', 'ALTER TABLE conversations ADD COLUMN deleted_at REAL'),
             ('message_count', 'ALTER TABLE conversations ADD COLUMN message_count INTEGER DEFAULT 0'),
+            ('title_source', "ALTER TABLE conversations ADD COLUMN title_source TEXT DEFAULT 'auto'"),
+            ('title_locked', 'ALTER TABLE conversations ADD COLUMN title_locked INTEGER DEFAULT 0'),
         ]:
             if col_name not in sql:
                 try:

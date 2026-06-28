@@ -3,6 +3,7 @@
 import os
 import json
 import time
+import threading
 import urllib.request
 
 from .config import AI_CONFIG_FILE
@@ -43,10 +44,10 @@ def _load_ai_config():
 
     # 环境变量覆盖（优先级最高）
     models = defaults.get("models", [])
-    env_ep = os.getenv("LLM_API_ENDPOINT")
-    env_tok = os.getenv("LLM_API_TOKEN")
-    env_mod = os.getenv("LLM_MODEL_NAME")
-    if env_ep or env_tok or env_mod:
+    env_ep = os.getenv("LLM_API_ENDPOINT", "").strip()
+    env_tok = os.getenv("LLM_API_TOKEN", "").strip()
+    env_mod = os.getenv("LLM_MODEL_NAME", "").strip()
+    if env_ep and env_tok:
         models.insert(0, {
             "name": env_mod or "env-model",
             "endpoint": env_ep or "https://api.llm.ustc.edu.cn/v1/chat/completions",
@@ -93,12 +94,14 @@ def _best_model():
 
 
 def _health_probe():
-    """定期向各模型发轻量请求以测量延迟（每 health_interval 秒一次）"""
-    global _last_health_time, _current_model_idx
+    """No-op: health check runs in background thread (保留接口兼容)"""
+    pass
+
+
+def _health_probe_once():
+    """向各模型发轻量请求以测量延迟"""
+    global _current_model_idx
     now = time.time()
-    if now - _last_health_time < _health_interval:
-        return
-    _last_health_time = now
     for i, m in enumerate(_models):
         if not m["token"]:
             continue
@@ -110,7 +113,6 @@ def _health_probe():
                 "max_tokens": 1,
                 "temperature": 0,
             }).encode("utf-8")
-            # endpoint 已包含完整 URL，直接使用
             req = urllib.request.Request(
                 m["endpoint"],
                 data=payload,
@@ -133,6 +135,16 @@ def _health_probe():
             print(f"[health] {m['name']}: 故障 ({e})")
 
 
+def _health_loop():
+    """后台线程: 每 health_interval 秒执行一次健康检查"""
+    global _last_health_time
+    while True:
+        time.sleep(_health_interval)
+        if time.time() - _last_health_time >= _health_interval:
+            _last_health_time = time.time()
+            _health_probe_once()
+
+
 def get_tavily_key():
     return _tavily_key
 
@@ -153,3 +165,7 @@ LLM_ENDPOINT = _models[0]["endpoint"] if _models else ""
 LLM_TOKEN = _models[0]["token"] if _models else ""
 LLM_ENGINE = _models[0]["name"] if _models else ""
 TAVILY_TOKEN = _tavily_key
+
+# 启动后台健康检查线程
+_health_thread = threading.Thread(target=_health_loop, daemon=True)
+_health_thread.start()

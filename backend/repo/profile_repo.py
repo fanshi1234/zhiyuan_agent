@@ -43,7 +43,7 @@ def create_or_update(conv_id, **kwargs):
         sets = []
         vals = []
         for f in fields:
-            if f in kwargs and kwargs[f] is not None and kwargs[f] != '':
+            if f in kwargs and kwargs[f] is not None:
                 sets.append(f"{f}=?")
                 vals.append(_to_json(kwargs[f]) if f.endswith('_pref') or f == 'region_avoid' or f == 'raw_json' else kwargs[f])
         if sets:
@@ -61,8 +61,8 @@ def create_or_update(conv_id, **kwargs):
         placeholders.append("conversation_id")
         for f in fields:
             val = kwargs.get(f, '')
-            if val and (f.endswith('_pref') or f == 'region_avoid' or f == 'raw_json'):
-                val = _to_json(val)
+            if f.endswith('_pref') or f == 'region_avoid' or f == 'raw_json':
+                val = _to_json(val) if val is not None and val != '' else ''
             values.append(val)
             placeholders.append(f)
         values.extend([now, now])

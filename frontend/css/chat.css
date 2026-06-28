@@ -23,11 +23,41 @@
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
-  opacity: .35;
+  opacity: 0;
   font-size: 14px;
   cursor: pointer;
+  transition: opacity .12s;
 }
+.conv-item:hover .dismiss { opacity: .35 }
 .conv-item .dismiss:hover { opacity: 1 }
+
+/* Conversation title */
+.conv-item .conv-title {
+  display: inline-block;
+  max-width: calc(100% - 60px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Conversation action buttons (rename, regenerate) */
+.conv-item .conv-actions {
+  display: inline;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.conv-item .conv-actions span {
+  opacity: 0;
+  cursor: pointer;
+  margin-right: 4px;
+  font-size: 12px;
+  transition: opacity .12s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.conv-item:hover .conv-actions span { opacity: .5 }
+.conv-item:hover .conv-actions span:hover { opacity: 1 }
 
 /* ---- Greeting (empty chat) ---- */
 .greeting {
