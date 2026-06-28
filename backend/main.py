@@ -8,7 +8,7 @@ try:
 except Exception:
     pass
 
-from .config import LISTEN_PORT, ROOT_DIR, DATA_DIR
+from .config import LISTEN_HOST, LISTEN_PORT, ROOT_DIR, DATA_DIR
 from .server import AppHandler
 from .database import DB_AVAILABLE
 from .kb_search import kb_file_count
@@ -26,7 +26,7 @@ def start_server():
     # 初始化新数据库层（7 张表，自动迁移）
     init_new_db()
 
-    server = ThreadingHTTPServer(("0.0.0.0", LISTEN_PORT), AppHandler)
+    server = ThreadingHTTPServer((LISTEN_HOST, LISTEN_PORT), AppHandler)
     models = get_models()
 
     print(f"志愿Agent 服务已启动: http://127.0.0.1:{LISTEN_PORT}/")

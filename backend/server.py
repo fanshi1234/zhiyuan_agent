@@ -6,6 +6,7 @@ import threading
 import traceback
 import urllib.parse
 import uuid as uuid_mod
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler
 
 from .config import TEMPLATE_FILE, LISTEN_PORT
@@ -537,6 +538,7 @@ class AppHandler(BaseHTTPRequestHandler):
         username = require_auth(self)
         models = get_models()
         cur_idx = get_current_model_idx()
+        now = datetime.now()
         return self._json_response({
             "llm_configured": bool(LLM_TOKEN),
             "tavily_configured": bool(TAVILY_TOKEN),
@@ -545,6 +547,9 @@ class AppHandler(BaseHTTPRequestHandler):
             "endpoint": LLM_ENDPOINT,
             "username": username or "",
             "kb_files": kb_file_count(),
+            "current_date": now.strftime("%Y-%m"),
+            "current_year": now.strftime("%Y"),
+            "current_month": now.strftime("%m"),
             "models": [
                 {"name": m["name"], "endpoint": m["endpoint"], "priority": m["priority"],
                  "latency_ms": round(m["latency_ms"], 0) if m["latency_ms"] else None,

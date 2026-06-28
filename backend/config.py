@@ -38,6 +38,7 @@ if _env_file.exists():
         pass
 
 # 服务配置（环境变量优先，向下兼容）
+LISTEN_HOST = os.getenv("XUEFENG_HOST", "127.0.0.1")
 LISTEN_PORT = int(os.getenv("XUEFENG_PORT", "8765"))
 SESSION_TTL = int(os.getenv("SESSION_TTL", "86400"))
 
